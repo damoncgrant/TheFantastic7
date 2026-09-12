@@ -36,6 +36,10 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 USE_TZ = True
 TIME_ZONE = "UTC"
 
+# Uploaded job photos are stored locally for this hackathon prototype and
+# delivered through an API endpoint so the Vite development proxy can show them.
+MEDIA_ROOT = BASE_DIR / "media"
+
 # Custom user model (accounts.User): logs in with email instead of username.
 AUTH_USER_MODEL = "accounts.User"
 

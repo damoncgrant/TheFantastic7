@@ -27,7 +27,7 @@ function Field({ label, value, onChange, multiline = false, placeholder = '' }) 
   return <label className="field"><span>{label}</span>{multiline ? <textarea {...props} rows="3" /> : <input {...props} />}</label>;
 }
 
-export default function ResumeBuilder({ busy, initialResume, initialName, onSave, onRender, onClose }) {
+export default function ResumeBuilder({ busy, initialResume, initialName, onSave, onRender, onClose, hideRender = false, hideClose = false, closeOnSave = false }) {
   const [resume, setResume] = useState(() => normalizeResume(initialResume));
   const [name, setName] = useState(initialName || 'Untitled resume');
   const [saved, setSaved] = useState(false);
@@ -36,14 +36,15 @@ export default function ResumeBuilder({ busy, initialResume, initialName, onSave
   const updateEntry = (section, index, key, value) => setResume((current) => ({ ...current, [section]: current[section].map((entry, entryIndex) => entryIndex === index ? { ...entry, [key]: value } : entry) }));
   const addEntry = (section, entry) => setResume((current) => ({ ...current, [section]: [...current[section], entry()] }));
   const removeEntry = (section, index) => setResume((current) => ({ ...current, [section]: current[section].filter((_, entryIndex) => entryIndex !== index) }));
-  const save = async () => {
+  const save = async (showStatus = true) => {
     await onSave({ name: name.trim() || 'Untitled resume', data: resume });
-    setSaved(true);
+    if (showStatus) setSaved(true);
   };
-  const saveAndRender = async () => { await save(); onRender(resume); };
+  const saveAndRender = async () => { await save(false); onRender(resume); };
+  const saveAndClose = async () => { await save(); onClose(); };
 
   return <section className="builder" aria-label="Resume builder">
-    <div className="builder-heading"><div><h2>Build your resume</h2><p>Fields follow Jake’s resume structure. Leave any optional section blank to omit it.</p></div><button className="secondary" onClick={onClose} disabled={busy}>Back to resumes</button></div>
+    <div className="builder-heading"><div><h2>Build your resume</h2><p>Fields follow Jake’s resume structure. Leave any optional section blank to omit it.</p></div>{!hideClose && <button className="secondary-button" onClick={onClose} disabled={busy}>Back to resumes</button>}</div>
     <div className="builder-scroll">
       <section className="builder-section"><Field label="Resume name" value={name} onChange={setName} placeholder="Software developer resume" /></section>
       <section className="builder-section"><h3>Contact</h3><div className="field-grid">
@@ -73,10 +74,10 @@ export default function ResumeBuilder({ busy, initialResume, initialName, onSave
         <Field label="Developer Tools" value={resume.skills.tools} onChange={(value) => updateSkills('tools', value)} placeholder="Git, Docker, VS Code" /><Field label="Libraries" value={resume.skills.libraries} onChange={(value) => updateSkills('libraries', value)} placeholder="pandas, NumPy" />
       </div></section>
     </div>
-    <div className="builder-actions">{saved && <span className="save-status" role="status">Saved</span>}<button className="secondary" onClick={save}>Save resume</button><button className="render-button" onClick={saveAndRender} disabled={busy}>{busy ? 'Rendering…' : 'Save & render'}</button></div>
+    <div className="builder-actions">{saved && <span className="save-status" role="status">Saved</span>}{!hideRender && <button className="render-button" onClick={saveAndRender} disabled={busy}>{busy ? 'Rendering…' : 'Render'}</button>}<button className={hideRender ? 'primary-button' : 'secondary-button'} onClick={closeOnSave ? saveAndClose : save} disabled={busy}>Save resume</button></div>
   </section>;
 }
 
 function EntrySection({ title, entryLabel, entries, section, addLabel, onAdd, onRemove, children }) {
-  return <section className="builder-section"><div className="section-heading"><h3>{title}</h3><button className="secondary small-button" onClick={onAdd}>+ {addLabel}</button></div>{entries.map((entry, index) => <div className="resume-entry" key={`${section}-${index}`}><div className="entry-title">{entryLabel} {index + 1}</div>{entries.length > 1 && <button className="remove-button" onClick={() => onRemove(section, index)} aria-label={`Remove ${entryLabel} ${index + 1}`}>Remove</button>}{children(entry, index)}</div>)}</section>;
+  return <section className="builder-section"><div className="section-heading"><h3>{title}</h3><button className="secondary-button small-button" onClick={onAdd}>+ {addLabel}</button></div>{entries.map((entry, index) => <div className="resume-entry" key={`${section}-${index}`}><div className="entry-title">{entryLabel} {index + 1}</div>{entries.length > 1 && <button className="remove-button" onClick={() => onRemove(section, index)} aria-label={`Remove ${entryLabel} ${index + 1}`}>Remove</button>}{children(entry, index)}</div>)}</section>;
 }

@@ -37,6 +37,7 @@ class UserProfile(models.Model):
     headline = models.CharField(max_length=180, blank=True)
     bio = models.TextField(blank=True)
     skills = models.JSONField(default=list, blank=True)
+    photo = models.FileField(upload_to="profile_photos/", blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
@@ -61,6 +62,7 @@ class Job(models.Model):
     compensation = models.CharField(max_length=120)
     employment_type = models.CharField(max_length=60, default="Full-time")
     requirements = models.JSONField(default=list, blank=True)
+    photo = models.FileField(upload_to="job_photos/", blank=True)
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
@@ -86,6 +88,7 @@ class Application(models.Model):
 
     job = models.ForeignKey(Job, on_delete=models.CASCADE, related_name="applications")
     candidate = models.ForeignKey(UserProfile, on_delete=models.CASCADE, related_name="applications")
+    resume = models.ForeignKey(Resume, on_delete=models.SET_NULL, related_name="applications", null=True, blank=True)
     candidate_decision = models.CharField(max_length=10, choices=CandidateDecision.choices)
     recruiter_decision = models.CharField(max_length=10, choices=RecruiterDecision.choices, default=RecruiterDecision.PENDING)
     stage = models.CharField(max_length=10, choices=Stage.choices, default=Stage.APPLIED)

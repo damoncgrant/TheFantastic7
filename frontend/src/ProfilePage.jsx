@@ -30,6 +30,9 @@ export default function ProfilePage({ profile, onSave, accountEmail, onLogout })
   const [feedback, setFeedback] = useState(null);
   const [pictureError, setPictureError] = useState('');
   const [processingPicture, setProcessingPicture] = useState(false);
+  const [savingProfile, setSavingProfile] = useState(false);
+  const [pictureFile, setPictureFile] = useState(null);
+  const [pictureRemoved, setPictureRemoved] = useState(false);
   const pictureInput = useRef(null);
   const pictureRequest = useRef(0);
   const hasChanges = hasProfileChanges(profile, draft);
@@ -48,6 +51,8 @@ export default function ProfilePage({ profile, onSave, accountEmail, onLogout })
       const picture = await prepareProfilePicture(file);
       if (request === pictureRequest.current) {
         setDraft((current) => ({ ...current, picture }));
+        setPictureFile(file);
+        setPictureRemoved(false);
       }
     } catch (error) {
       if (request === pictureRequest.current) setPictureError(error.message);
@@ -61,6 +66,8 @@ export default function ProfilePage({ profile, onSave, accountEmail, onLogout })
     setProcessingPicture(false);
     setPictureError('');
     setFeedback(null);
+    setPictureFile(null);
+    setPictureRemoved(true);
     setDraft((current) => ({ ...current, picture: '' }));
   }
 
@@ -70,7 +77,7 @@ export default function ProfilePage({ profile, onSave, accountEmail, onLogout })
     setFeedback(null);
   }
 
-  function saveProfile(event) {
+  async function saveProfile(event) {
     event.preventDefault();
     if (processingPicture) return;
     const nextProfile = Object.fromEntries(Object.entries(draft).map(([key, value]) => [key, value.trim()]));
@@ -79,13 +86,18 @@ export default function ProfilePage({ profile, onSave, accountEmail, onLogout })
       event.currentTarget.elements.namedItem('name').focus();
       return;
     }
+    setSavingProfile(true);
     try {
-      window.localStorage.setItem(getProfileStorageKey(accountEmail), JSON.stringify(nextProfile));
-      onSave(nextProfile);
-      setDraft(nextProfile);
+      const savedProfile = await onSave(nextProfile, { file: pictureFile, removed: pictureRemoved });
+      window.localStorage.setItem(getProfileStorageKey(accountEmail), JSON.stringify(savedProfile));
+      setDraft(savedProfile);
+      setPictureFile(null);
+      setPictureRemoved(false);
       setFeedback({ message: 'Your profile has been saved.' });
-    } catch {
-      setFeedback({ error: true, message: 'Your profile could not be saved in this browser. Please try again.' });
+    } catch (error) {
+      setFeedback({ error: true, message: error.message || 'Your profile could not be saved. Please try again.' });
+    } finally {
+      setSavingProfile(false);
     }
   }
 
@@ -94,6 +106,8 @@ export default function ProfilePage({ profile, onSave, accountEmail, onLogout })
     pictureRequest.current += 1;
     setProcessingPicture(false);
     setPictureError('');
+    setPictureFile(null);
+    setPictureRemoved(false);
     setDraft({ ...profile });
     setFeedback({ message: 'Unsaved changes discarded.' });
   }
@@ -170,8 +184,10 @@ export default function ProfilePage({ profile, onSave, accountEmail, onLogout })
             </p>
           </div>
           <div className="profile-actions">
-            <button className="secondary-button" type="reset" disabled={!hasChanges && !processingPicture}>Cancel</button>
-            <button className="primary-button" type="submit" disabled={!hasChanges || processingPicture}>Save changes</button>
+            <button className="secondary-button" type="reset" disabled={savingProfile || (!hasChanges && !processingPicture)}>Cancel</button>
+            <button className="primary-button" type="submit" disabled={!hasChanges || processingPicture || savingProfile}>
+              {savingProfile ? 'Saving…' : 'Save changes'}
+            </button>
           </div>
         </div>
       </form>

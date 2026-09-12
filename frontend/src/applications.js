@@ -18,6 +18,7 @@ export async function fetchApplications(candidateId, options) {
     role: application.job.title,
     date: new Date(application.applied_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }),
     status: application.stage_label,
-    profile: application.job.company.logo_url,
+    // Prefer the posting photo uploaded by the recruiter, then fall back to its company logo.
+    profile: application.job.photo_url || application.job.company.logo_url,
   }));
 }
