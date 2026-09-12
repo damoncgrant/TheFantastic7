@@ -1,9 +1,15 @@
 import { useEffect, useRef, useState } from 'react';
 import JobSwiper from './UserJobswiper';
 import DMPage from './DMPage.jsx';
+import JobDetail from './Components/JobDetail.jsx';
 import ProfilePage from './ProfilePage';
 import { getInitials, getProfileStorageKey, loadProfile } from './profile';
 import ResumeBuilderPage from './resume_builder/ResumePage.jsx';
+
+
+// For this hackathon API, the active profile is provided explicitly.
+// Set VITE_CANDIDATE_ID in frontend/.env.local to a UserProfile primary key.
+const candidateId = import.meta.env.VITE_CANDIDATE_ID ?? 1;
 import { fetchApplications } from './applications';
 import NotificationsPage, { useNotifications } from './NotificationsPage';
 import { removeCandidateProfilePhoto, uploadCandidateProfilePhoto } from './api.js';
@@ -41,11 +47,19 @@ function PageHeader({ eyebrow, title, description, action }) {
   );
 }
 
-function ApplicationRow({ application }) {
+function ApplicationRow({ application, onSelectJob }) {
   const statusClass = application.status.toLowerCase();
 
   return (
-    <article className={`application-row application-${statusClass}`}>
+    <article
+      className={`application-row application-${statusClass}`}
+      onClick={() => onSelectJob(application)}
+      role="button"
+      tabIndex={0}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") onSelectJob(application);
+      }}
+    >
       {application.profile ? (
         <img
           className="company-profile"
@@ -86,7 +100,7 @@ function EmptyApplications() {
   );
 }
 
-function OverviewPage({ profile, applications, applicationsLoading }) {
+function OverviewPage({ profile, applications, applicationsLoading, onSelectJob }) {
   const applicationStats = [
     { label: 'Applications sent', value: applications.length },
     { label: 'Interviews', value: applications.filter((application) => application.stage === 'interview').length },
@@ -138,7 +152,7 @@ function OverviewPage({ profile, applications, applicationsLoading }) {
         ) : (
           <div className="application-list">
             {applications.slice(0, 3).map((application) => (
-              <ApplicationRow application={application} key={application.id} />
+              <ApplicationRow application={application} onSelectJob={onSelectJob} key={application.id} />
             ))}
           </div>
         )}
@@ -149,7 +163,7 @@ function OverviewPage({ profile, applications, applicationsLoading }) {
 
 const applicationFilters = ['all', 'applied', 'interview', 'offer', 'rejected'];
 
-function ApplicationsPage({ applications, applicationsLoading }) {
+function ApplicationsPage({ applications, applicationsLoading, onSelectJob }) {
   const [activeFilter, setActiveFilter] = useState('all');
   const filteredApplications = activeFilter === 'all'
     ? applications
@@ -192,7 +206,7 @@ function ApplicationsPage({ applications, applicationsLoading }) {
         ) : (
           <div className="application-list">
             {filteredApplications.map((application) => (
-              <ApplicationRow application={application} key={application.id} />
+              <ApplicationRow application={application} onSelectJob={onSelectJob} key={application.id} />
             ))}
           </div>
         )}
@@ -310,6 +324,7 @@ export default function App({ user, onLogout }) {
   const candidateId = user.profile_id ?? user.candidateId;
   const [activePage, setActivePage] = useState(getPageFromHash);
   const [profile, setProfile] = useState(() => loadProfile(user.email, user.name, user.picture_url));
+  const [selectedJob, setSelectedJob] = useState(null); // NEW
   const [applications, setApplications] = useState([]);
   const [applicationsLoading, setApplicationsLoading] = useState(true);
   const legacyPhotoSync = useRef({ source: '', promise: null });
@@ -377,6 +392,10 @@ export default function App({ user, onLogout }) {
     return () => window.removeEventListener('hashchange', updatePage);
   }, []);
 
+  // Page overlay of job posting
+  if (selectedJob) {
+    return <JobDetail job={selectedJob} onBack={() => setSelectedJob(null)} />;
+  }
   // Refetch whenever the applications list is actually visible, so swiping
   // on a job elsewhere and coming back shows the newly created application.
   useEffect(() => {
@@ -445,6 +464,7 @@ export default function App({ user, onLogout }) {
           candidateId={candidateId}
           accountEmail={user.email}
           onLogout={onLogout}
+          onSelectJob={setSelectedJob}
           applications={applications}
           applicationsLoading={applicationsLoading}
           notifications={notifications}

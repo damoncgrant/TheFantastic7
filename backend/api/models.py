@@ -88,6 +88,7 @@ class Application(models.Model):
 
     job = models.ForeignKey(Job, on_delete=models.CASCADE, related_name="applications")
     candidate = models.ForeignKey(UserProfile, on_delete=models.CASCADE, related_name="applications")
+    resume = models.ForeignKey(Resume, on_delete=models.SET_NULL, related_name="applications", null=True, blank=True)
     candidate_decision = models.CharField(max_length=10, choices=CandidateDecision.choices)
     recruiter_decision = models.CharField(max_length=10, choices=RecruiterDecision.choices, default=RecruiterDecision.PENDING)
     stage = models.CharField(max_length=10, choices=Stage.choices, default=Stage.APPLIED)

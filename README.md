@@ -16,6 +16,7 @@ cd backend
 python3 -m venv .venv
 source .venv/bin/activate
 python3 -m pip install -r requirements.txt
+python3 manage.py migrate
 python3 manage.py runserver
 ```
 
@@ -69,12 +70,12 @@ For a project-local macOS install, run these commands from the repository root:
 mkdir -p backend/.tools/TinyTeX
 curl -fL https://github.com/rstudio/tinytex-releases/releases/download/v2026.09/TinyTeX-1-darwin-v2026.09.tar.xz -o /tmp/tinytex-resume.tar.xz
 tar -xf /tmp/tinytex-resume.tar.xz -C backend/.tools/TinyTeX --strip-components=1
-"$PWD/backend/.tools/TinyTeX/bin/universal-darwin/tlmgr" install preprint titlesec marvosym enumitem fancyhdr babel-english
+"$PWD/backend/.tools/TinyTeX/bin/universal-darwin/tlmgr" install preprint titlesec marvosym enumitem fancyhdr babel-english fontawesome5 changepage paracol needspace bookmark lastpage eso-pic sourcesans ly1
 ```
 
 Django automatically finds this project-local installation; `.tools/` is ignored
 by Git. For Windows/Linux installation, see the [TinyTeX instructions](https://yihui.org/tinytex/faq/).
-Install the same additional packages with `tlmgr install preprint titlesec marvosym enumitem fancyhdr babel-english`.
+Install the same additional packages with `tlmgr install preprint titlesec marvosym enumitem fancyhdr babel-english fontawesome5 changepage paracol needspace bookmark lastpage eso-pic sourcesans ly1`.
 Restart Django after installing a compiler or changing its PATH.
 
 The API uses `GET /api/csrf/` followed by a multipart `POST /api/resumes/render/`
@@ -87,7 +88,7 @@ compilation service for public uploads.
 ### Resume files
 
 - `frontend/src/resume_builder/ResumePage.jsx`: entry options, upload, and preview.
-- `frontend/src/resume_builder/template.tex`: original Jake's template, unchanged.
+- `frontend/src/resume_builder/template.tex`: sample LaTeX resume used for import testing.
 - `backend/api/latex.py`: compilation and temporary-file cleanup.
 - `backend/api/tests.py`: upload, CSRF, error handling, and actual template checks.
 
@@ -99,9 +100,10 @@ compilation service for public uploads.
 - `backend/api/urls.py`: API routes.
 - `backend/config/settings.py`: Django settings.
 
-No database setup is needed for this endpoint. SQLite is configured for when
-you add models; then run `python manage.py makemigrations` and
-`python manage.py migrate` from `backend/` with the virtual environment active.
+Database migrations are committed with the project. For normal setup and after
+pulling schema changes, run `python manage.py migrate` from `backend/` with the
+virtual environment active. `makemigrations` is only needed when intentionally
+changing a Django model, and the resulting migration should be committed.
 
 ## Checks
 

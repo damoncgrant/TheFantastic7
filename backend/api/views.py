@@ -246,6 +246,7 @@ def serialize_application(application):
         "stage": application.stage,
         "stage_label": application.get_stage_display(),
         "applied_at": application.applied_at.isoformat(),
+        "resume": {"id": application.resume_id, "name": application.resume.name} if application.resume_id else None,
         "job": serialize_job(application.job, application),
     }
 
@@ -380,13 +381,21 @@ def candidate_swipe(request, job_id):
     if data.get("decision") not in {"right", "left"}:
         return error("decision must be 'right' or 'left'")
     job = get_object_or_404(Job, pk=job_id, is_active=True)
+    selected_resume = None
+    if data["decision"] == "right" and request.user.is_authenticated:
+        resume_id = data.get("resume_id")
+        resumes = Resume.objects.filter(user=request.user)
+        selected_resume = get_object_or_404(resumes, pk=resume_id) if resume_id else resumes.filter(is_default=True).first()
+        if selected_resume is None:
+            return error("Create a resume before applying to a job.", 409)
     application, _ = Application.objects.get_or_create(job=job, candidate=candidate, defaults={"candidate_decision": "skipped"})
     if application.recruiter_decision != Application.RecruiterDecision.PENDING:
         return error("This application has already been reviewed", 409)
     application.candidate_decision = "applied" if data["decision"] == "right" else "skipped"
     if data["decision"] == "right":
         application.stage = Application.Stage.APPLIED
-    application.save(update_fields=["candidate_decision", "stage", "updated_at"])
+        application.resume = selected_resume
+    application.save(update_fields=["candidate_decision", "stage", "resume", "updated_at"])
     return JsonResponse({"application_id": application.id, "status": application.candidate_decision, "sent_to_recruiter": data["decision"] == "right"})
 
 
@@ -638,6 +647,15 @@ def recruiter_swipe(request, application_id):
     app.recruiter_decision = "selected" if data["decision"] == "right" else "rejected"
     app.stage = Application.Stage.OFFER if data["decision"] == "right" else Application.Stage.REJECTED
     app.save(update_fields=["recruiter_decision", "stage", "updated_at"])
+    if app.is_match:
+        Message.objects.create(
+            application=app,
+            sender=recruiter,
+            body=(
+                f"Great news! You matched with {app.job.company.name} "
+                f"for the {app.job.title} role. Start the conversation here."
+            ),
+        )
     return JsonResponse({
         "application_id": app.id,
         "status": app.recruiter_decision,

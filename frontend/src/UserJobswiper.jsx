@@ -1,154 +1,106 @@
-import React, { useCallback, useEffect, useRef, useState } from "react";
-import ImageDescription from "./Components/ImageDescription";
-import TextDescription from "./Components/TextDescription";
-import SwipeButton from "./Components/SwipeButton";
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { apiRequest } from './api.js';
 
-/**
- * JobSwiper
- * A Tinder-style swipe interface for job listings.
- * Each card has two stacked pieces: ImageDescription (logo or resume art)
- * and TextDescription (the job description itself). Two stamp-style
- * buttons anchored to the left/right edges of the screen handle the
- * reject / accept decisions, and the card itself is draggable too.
- */
-
-const ACCENT_COLORS = ["#3F6B4F", "#8C4432", "#4B6283", "#7B5B8D"];
+const ACCENT_COLORS = ['#3F6B4F', '#8C4432', '#4B6283', '#7B5B8D'];
 
 function toCard(job, index) {
-  const companyName = job.company.name;
-  return {
-    ...job,
-    company: companyName,
-    imageType: "logo",
-    initials: companyName.split(/\s+/).map((word) => word[0]).join("").slice(0, 2).toUpperCase(),
-    accent: ACCENT_COLORS[index % ACCENT_COLORS.length],
-    tags: [job.employment_type, job.compensation, ...job.requirements],
-  };
+  const company = job.company.name;
+  return { ...job, company, initials: company.split(/\s+/).map((word) => word[0]).join('').slice(0, 2).toUpperCase(), accent: ACCENT_COLORS[index % ACCENT_COLORS.length], tags: [job.employment_type, job.compensation, ...job.requirements] };
 }
 
 export default function JobSwiper({ candidateId }) {
   const [jobs, setJobs] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
+  const [error, setError] = useState('');
+  const [resumes, setResumes] = useState([]);
+  const [selectedResumeId, setSelectedResumeId] = useState(null);
   const [dragX, setDragX] = useState(0);
-  const [exiting, setExiting] = useState(null); // "left" | "right" | null
+  const [exiting, setExiting] = useState(null);
   const dragging = useRef(false);
   const startX = useRef(0);
-
   const current = jobs[0];
 
   useEffect(() => {
     const controller = new AbortController();
-
     async function loadDeck() {
       try {
-        setLoading(true);
-        setError("");
+        setLoading(true); setError('');
         const response = await fetch(`/api/jobs/deck/?candidate_id=${encodeURIComponent(candidateId)}`, { signal: controller.signal });
         const data = await response.json();
-        if (!response.ok) throw new Error(data.error || "Could not load jobs");
+        if (!response.ok) throw new Error(data.error || 'Could not load jobs');
         setJobs(data.jobs.map(toCard));
       } catch (loadError) {
-        if (loadError.name !== "AbortError") setError(loadError.message || "Could not load jobs");
-      } finally {
-        if (!controller.signal.aborted) setLoading(false);
-      }
+        if (loadError.name !== 'AbortError') setError(loadError.message || 'Could not load jobs');
+      } finally { if (!controller.signal.aborted) setLoading(false); }
     }
-
     loadDeck();
     return () => controller.abort();
   }, [candidateId]);
 
+  useEffect(() => {
+    async function loadResumes() {
+      try {
+        const data = await apiRequest('/api/resumes/');
+        setResumes(data.resumes);
+        setSelectedResumeId((current) => current ?? data.resumes.find((resume) => resume.isDefault)?.id ?? data.resumes[0]?.id ?? null);
+      } catch {
+        // The deck can still be viewed before sign-in; applying will explain the missing resume.
+      }
+    }
+    loadResumes();
+  }, []);
+
   const commitSwipe = useCallback(async (direction) => {
     if (!current || exiting) return;
-    setExiting(direction);
+    setError(''); setExiting(direction);
     try {
-      const response = await fetch(`/api/jobs/${current.id}/swipe/`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ candidate_id: candidateId, decision: direction }),
-      });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error || "Could not save swipe");
-      setTimeout(() => {
-        setJobs((previous) => direction === "left" ? [...previous.slice(1), previous[0]] : previous.slice(1));
-        setExiting(null);
-        setDragX(0);
-      }, 220);
-    } catch (swipeError) {
-      setExiting(null);
-      setDragX(0);
-      setError(swipeError.message || "Could not save swipe");
-    }
-  }, [candidateId, current, exiting]);
+      if (direction === 'right' && !selectedResumeId) throw new Error('Create a resume before you start applying.');
+      await apiRequest(`/api/jobs/${current.id}/swipe/`, { method: 'POST', body: JSON.stringify({ candidate_id: candidateId, decision: direction, resume_id: direction === 'right' ? selectedResumeId : undefined }) });
+      await new Promise((resolve) => window.setTimeout(resolve, 220));
+      setJobs((items) => direction === 'left' ? [...items.slice(1), items[0]] : items.slice(1));
+      if (direction === 'right') {
+        setSelectedResumeId(resumes.find((resume) => resume.isDefault)?.id ?? resumes[0]?.id ?? null);
+      }
+      setDragX(0); setExiting(null);
+    } catch (swipeError) { setDragX(0); setExiting(null); setError(swipeError.message || 'Could not save swipe'); }
+  }, [candidateId, current, exiting, resumes, selectedResumeId]);
 
-  const onPointerDown = (e) => {
-    dragging.current = true;
-    startX.current = e.clientX;
-  };
-  const onPointerMove = (e) => {
-    if (!dragging.current) return;
-    setDragX(e.clientX - startX.current);
-  };
-  const onPointerUp = () => {
-    if (!dragging.current) return;
-    dragging.current = false;
-    if (dragX > 110) commitSwipe("right");
-    else if (dragX < -110) commitSwipe("left");
-    else setDragX(0);
-  };
+  function beginDrag(event) { dragging.current = true; startX.current = event.clientX; event.currentTarget.setPointerCapture?.(event.pointerId); }
+  function moveDrag(event) { if (dragging.current && !exiting) setDragX(event.clientX - startX.current); }
+  function endDrag() { if (!dragging.current) return; dragging.current = false; if (dragX > 90) commitSwipe('right'); else if (dragX < -90) commitSwipe('left'); else setDragX(0); }
 
-  const cardTransform = exiting
-    ? exiting === "right"
-      ? "translateX(600px) rotate(18deg)"
-      : "translateX(-600px) rotate(-18deg)"
-    : `translateX(${dragX}px) rotate(${dragX / 22}deg)`;
+  if (loading) return <p className="candidate-swipe-state" role="status">Loading opportunities…</p>;
+  if (error && !current) return <p className="candidate-swipe-state error" role="alert">{error}</p>;
+  if (!current) return <section className="candidate-swipe-empty"><span aria-hidden="true">✓</span><h2>You’re all caught up</h2><p>New opportunities will appear here when they are posted.</p></section>;
 
+  const cardTransform = exiting ? `translateX(${exiting === 'right' ? '125%' : '-125%'}) rotate(${exiting === 'right' ? '12deg' : '-12deg'})` : `translateX(${dragX}px) rotate(${dragX / 28}deg)`;
+  const selectedResume = resumes.find((resume) => resume.id === selectedResumeId);
   return (
-    <div
-      style={{
-        minHeight: "100vh",
-        background: "#14161C",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        position: "relative",
-        fontFamily: "Georgia, serif",
-      }}
-    >
-      {loading ? (
-        <div style={{ color: "#F4EFE2", fontSize: 15 }}>Loading jobs…</div>
-      ) : current ? (
-        <>
-          <div
-            onPointerDown={onPointerDown}
-            onPointerMove={onPointerMove}
-            onPointerUp={onPointerUp}
-            onPointerLeave={onPointerUp}
-            style={{
-              width: 340,
-              height: 480,
-              background: "#EFE9DA",
-              borderRadius: 10,
-              overflow: "hidden",
-              boxShadow: "0 12px 30px rgba(0,0,0,0.45)",
-              cursor: "grab",
-              transform: cardTransform,
-              transition: exiting ? "transform 0.22s ease-out" : dragX === 0 ? "transform 0.15s ease-out" : "none",
-              userSelect: "none",
-            }}
-          >
-            <ImageDescription job={current} />
-            <TextDescription job={current} />
+    <section className="candidate-swipe-screen recruiter-swipe-screen" aria-label="Job review">
+      <div className="recruiter-swipe-progress"><span>{jobs.length} opportunities waiting</span><span>Drag or use the buttons</span></div>
+      <article className={`recruiter-swipe-card${exiting ? ' is-exiting' : ''}`} style={{ transform: cardTransform }} onPointerDown={beginDrag} onPointerMove={moveDrag} onPointerUp={endDrag} onPointerCancel={endDrag}>
+        <div className="candidate-swipe-company" style={{ '--company-accent': current.accent }}>
+          <span className="recruiter-swipe-label">Company</span><span className="recruiter-swipe-avatar" aria-hidden="true">{current.initials}</span>
+          {Math.abs(dragX) > 55 && <span className={`recruiter-swipe-stamp ${dragX > 0 ? 'offer' : 'reject'}`}>{dragX > 0 ? 'Apply' : 'Pass'}</span>}
+        </div>
+        <div className="recruiter-swipe-details candidate-swipe-details">
+          <div><h2>{current.title}</h2><p>{current.company} · {current.location}</p></div>
+          <p className="candidate-swipe-description">{current.description}</p>
+          <div className="recruiter-swipe-skills" aria-label="Job details">{current.tags.slice(0, 5).map((tag) => <span key={tag}>{tag}</span>)}</div>
+          <div className="resume-choice">
+            {resumes.length > 1 ? <label><span>Applying with</span>
+              <select value={selectedResumeId ?? ''} onPointerDown={(event) => event.stopPropagation()} onChange={(event) => setSelectedResumeId(Number(event.target.value))}>
+                {resumes.map((resume) => <option value={resume.id} key={resume.id}>{resume.name}{resume.isDefault ? ' (Default)' : ''}</option>)}
+              </select>
+            </label> : <span>{selectedResume ? <>Applying with <strong>{selectedResume.name}</strong></> : <strong>No resume selected</strong>}</span>}
           </div>
-
-          <SwipeButton side="left" label="reject" color="#8C4432" onClick={() => commitSwipe("left")} />
-          <SwipeButton side="right" label="accept" color="#3F6B4F" onClick={() => commitSwipe("right")} />
-        </>
-      ) : (
-        <div style={{ color: "#8A8578", fontSize: 15 }}>No more listings — check back later.</div>
-      )}
-      {error && <p role="alert" style={{ position: "fixed", bottom: 24, color: "#F4EFE2" }}>{error}</p>}
-    </div>
+        </div>
+      </article>
+      <div className="recruiter-swipe-actions">
+        <button className="recruiter-reject-button" type="button" onClick={() => commitSwipe('left')} disabled={Boolean(exiting)}><span aria-hidden="true">×</span> Pass</button>
+        <button className="recruiter-offer-button" type="button" onClick={() => commitSwipe('right')} disabled={Boolean(exiting)}>Apply <span aria-hidden="true">✓</span></button>
+      </div>
+      {error && <p className="recruiter-form-error recruiter-swipe-error" role="alert">{error}</p>}
+    </section>
   );
 }
