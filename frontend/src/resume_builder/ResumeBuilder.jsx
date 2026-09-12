@@ -36,11 +36,11 @@ export default function ResumeBuilder({ busy, initialResume, initialName, onSave
   const updateEntry = (section, index, key, value) => setResume((current) => ({ ...current, [section]: current[section].map((entry, entryIndex) => entryIndex === index ? { ...entry, [key]: value } : entry) }));
   const addEntry = (section, entry) => setResume((current) => ({ ...current, [section]: [...current[section], entry()] }));
   const removeEntry = (section, index) => setResume((current) => ({ ...current, [section]: current[section].filter((_, entryIndex) => entryIndex !== index) }));
-  const save = () => {
-    onSave({ name: name.trim() || 'Untitled resume', data: resume });
+  const save = async () => {
+    await onSave({ name: name.trim() || 'Untitled resume', data: resume });
     setSaved(true);
   };
-  const saveAndRender = () => { save(); onRender(resume); };
+  const saveAndRender = async () => { await save(); onRender(resume); };
 
   return <section className="builder" aria-label="Resume builder">
     <div className="builder-heading"><div><h2>Build your resume</h2><p>Fields follow Jake’s resume structure. Leave any optional section blank to omit it.</p></div><button className="secondary" onClick={onClose} disabled={busy}>Back to resumes</button></div>

@@ -1015,7 +1015,6 @@ h2 {
 .empty-resumes { display: grid; min-height: 340px; place-items: center; padding: 32px; border: 1px dashed #f0cbd4; border-radius: 22px; background: rgb(255 255 255 / 65%); text-align: center; }
 .empty-resumes > div { display: grid; justify-items: center; gap: 14px; max-width: 400px; }
 .empty-resumes p { color: var(--muted); line-height: 1.6; }
-.empty-resumes .create-resume-options { position: static; min-width: 100%; box-shadow: none; }
 
 .builder { display: flex; flex-direction: column; gap: 26px; padding: 28px; border: 1px solid #f2e9ec; border-radius: 22px; background: var(--panel); box-shadow: 0 12px 34px rgb(71 34 45 / 7%); }
 .builder-heading p { margin-top: 6px; color: var(--muted); line-height: 1.55; }

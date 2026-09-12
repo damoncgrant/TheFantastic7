@@ -1,4 +1,29 @@
+from django.conf import settings
 from django.db import models
+from django.db.models import Q
+
+
+class Resume(models.Model):
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="resumes")
+    name = models.CharField(max_length=150)
+    latex = models.TextField()
+    builder_data = models.JSONField(blank=True, null=True)
+    is_default = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-is_default", "-updated_at", "-id"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["user"],
+                condition=Q(is_default=True),
+                name="one_default_resume_per_user",
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.name} ({self.user.email})"
 
 
 class UserProfile(models.Model):
