@@ -1,17 +1,17 @@
 :root {
-  /* Warm neutral palette supplied in the design reference. */
-  --cream: #ffdbbb;
-  --stone: #ccbeb1;
-  --clay: #997e67;
-  --coffee: #664930;
-  --ink: #171411;
-  --panel: #221e1a;
-  --panel-light: #2b2520;
-  --muted: #a99e95;
-  --white: #fffaf5;
+  /* Coral, pink, and soft white tokens inspired by the new references. */
+  --cream: #ff4458;
+  --stone: #ff6b7a;
+  --clay: #ff7854;
+  --coffee: #e83d5f;
+  --ink: #25222b;
+  --panel: #ffffff;
+  --panel-light: #fff7f8;
+  --muted: #7b7480;
+  --white: #ffffff;
   font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  color: var(--white);
-  background: var(--ink);
+  color: var(--ink);
+  background: var(--panel-light);
   font-synthesis: none;
 }
 
@@ -27,7 +27,10 @@ body {
   margin: 0;
   min-width: 320px;
   min-height: 100vh;
-  background: var(--ink);
+  color: var(--ink);
+  background:
+    radial-gradient(circle at 85% 8%, rgb(255 120 84 / 14%), transparent 24rem),
+    linear-gradient(145deg, #fff 0%, #fff5f7 55%, #ffecef 100%);
 }
 
 button,
@@ -57,8 +60,10 @@ a {
   flex-direction: column;
   height: 100vh;
   padding: 30px 22px;
-  border-right: 1px solid rgb(255 219 187 / 10%);
-  background: #12100e;
+  border-right: 1px solid #f1e8eb;
+  background: rgb(255 255 255 / 92%);
+  box-shadow: 8px 0 30px rgb(73 29 43 / 5%);
+  backdrop-filter: blur(18px);
 }
 
 .brand {
@@ -68,6 +73,7 @@ a {
   font-size: 1.25rem;
   font-weight: 750;
   letter-spacing: -0.03em;
+  color: var(--cream);
 }
 
 .brand-mark,
@@ -83,8 +89,10 @@ a {
 .brand-mark {
   width: 34px;
   height: 34px;
-  color: var(--ink);
-  background: var(--cream);
+  border-radius: 50%;
+  color: var(--white);
+  background: linear-gradient(145deg, var(--clay), var(--cream));
+  box-shadow: 0 8px 18px rgb(255 68 88 / 24%);
 }
 
 .nav-links {
@@ -105,7 +113,7 @@ a {
 .nav-link:focus-visible,
 .nav-link.active {
   color: var(--cream);
-  background: rgb(255 219 187 / 9%);
+  background: #fff0f3;
   outline: none;
 }
 
@@ -115,7 +123,7 @@ a {
   gap: 10px;
   margin-top: auto;
   padding-top: 22px;
-  border-top: 1px solid rgb(255 255 255 / 8%);
+  border-top: 1px solid #f1e8eb;
 }
 
 .profile span:last-child {
@@ -135,8 +143,9 @@ a {
 .avatar {
   width: 36px;
   height: 36px;
-  color: var(--ink);
-  background: var(--stone);
+  border-radius: 50%;
+  color: var(--white);
+  background: linear-gradient(145deg, var(--stone), var(--coffee));
   font-size: 0.72rem;
 }
 
@@ -166,6 +175,7 @@ h1 {
   font-size: clamp(2rem, 5vw, 3.4rem);
   font-weight: 620;
   letter-spacing: -0.055em;
+  color: var(--ink);
 }
 
 h2 {
@@ -174,8 +184,7 @@ h2 {
   letter-spacing: -0.025em;
 }
 
-.page-header > div > p:last-child,
-.swipe-card > div > p:last-child {
+.page-header > div > p:last-child {
   margin-bottom: 0;
   color: var(--muted);
 }
@@ -196,14 +205,15 @@ h2 {
   justify-content: center;
   min-height: 44px;
   padding: 0 18px;
-  border-radius: 10px;
+  border-radius: 999px;
   font-weight: 700;
 }
 
 .primary-button {
-  border: 1px solid var(--cream);
-  color: var(--ink);
-  background: var(--cream);
+  border: 0;
+  color: var(--white);
+  background: linear-gradient(100deg, var(--clay), var(--cream));
+  box-shadow: 0 10px 22px rgb(255 68 88 / 24%);
   white-space: nowrap;
 }
 
@@ -212,15 +222,15 @@ h2 {
 }
 
 .secondary-button {
-  border: 1px solid rgb(255 255 255 / 16%);
-  color: var(--white);
-  background: transparent;
+  border: 1px solid #eadfe2;
+  color: var(--ink);
+  background: var(--white);
 }
 
 .primary-button:hover,
 .primary-button:focus-visible {
-  background: var(--stone);
-  border-color: var(--stone);
+  background: linear-gradient(100deg, #ff8b58, #f82f62);
+  box-shadow: 0 12px 26px rgb(255 68 88 / 32%);
 }
 
 .secondary-button:hover,
@@ -234,11 +244,18 @@ h2 {
   margin-top: 48px;
   padding: clamp(26px, 5vw, 44px);
   overflow: hidden;
-  border: 1px solid rgb(255 219 187 / 18%);
-  border-radius: 18px;
+  border: 0;
+  border-radius: 26px;
+  color: var(--white);
   background:
-    radial-gradient(circle at 92% 10%, rgb(255 219 187 / 18%), transparent 35%),
-    linear-gradient(120deg, var(--panel-light), #1c1815);
+    radial-gradient(circle at 90% 0%, rgb(255 255 255 / 25%), transparent 38%),
+    linear-gradient(120deg, var(--clay), var(--cream) 72%);
+  box-shadow: 0 22px 50px rgb(232 61 95 / 23%);
+}
+
+.swipe-card .eyebrow,
+.swipe-card > div > p:last-child {
+  color: rgb(255 255 255 / 88%);
 }
 
 .swipe-card h2 {
@@ -256,15 +273,16 @@ h2 {
 .stat-card,
 .content-panel,
 .saved-card {
-  border: 1px solid rgb(255 255 255 / 8%);
+  border: 1px solid #f2e9ec;
   background: var(--panel);
+  box-shadow: 0 12px 34px rgb(71 34 45 / 7%);
 }
 
 .stat-card {
   display: grid;
   gap: 20px;
   padding: 22px;
-  border-radius: 14px;
+  border-radius: 20px;
 }
 
 .stat-card span {
@@ -280,7 +298,7 @@ h2 {
 .content-panel {
   margin-top: 30px;
   padding: 26px;
-  border-radius: 16px;
+  border-radius: 22px;
 }
 
 .page-panel {
@@ -312,14 +330,15 @@ h2 {
   align-items: center;
   gap: 14px;
   min-height: 70px;
-  border-top: 1px solid rgb(255 255 255 / 7%);
+  border-top: 1px solid #f3ecee;
 }
 
 .company-mark {
   width: 38px;
   height: 38px;
-  color: var(--cream);
-  background: rgb(153 126 103 / 25%);
+  border-radius: 50%;
+  color: var(--white);
+  background: linear-gradient(145deg, var(--clay), var(--cream));
 }
 
 .application-details {
@@ -339,25 +358,25 @@ h2 {
 .status {
   padding: 7px 10px;
   border-radius: 999px;
-  color: var(--stone);
-  background: rgb(204 190 177 / 10%);
+  color: var(--coffee);
+  background: #fff0f3;
   font-size: 0.72rem;
   font-weight: 700;
 }
 
 .status.interview {
-  color: var(--ink);
-  background: var(--cream);
+  color: #b84616;
+  background: #fff0e8;
 }
 
 .status.offer {
-  color: var(--ink);
-  background: var(--stone);
+  color: #197048;
+  background: #eaf8f1;
 }
 
 .status.rejected {
   color: var(--muted);
-  background: rgb(255 255 255 / 6%);
+  background: #f3f0f1;
 }
 
 .filter-row {
@@ -369,7 +388,7 @@ h2 {
 
 .filter-chip,
 .bookmark-button {
-  border: 1px solid rgb(255 255 255 / 10%);
+  border: 1px solid #eadfe2;
   color: var(--muted);
   background: transparent;
 }
@@ -383,9 +402,9 @@ h2 {
 .filter-chip:hover,
 .filter-chip:focus-visible,
 .filter-chip.active {
-  border-color: var(--cream);
-  color: var(--ink);
-  background: var(--cream);
+  border-color: transparent;
+  color: var(--white);
+  background: linear-gradient(100deg, var(--clay), var(--cream));
 }
 
 .resume-grid {
@@ -420,8 +439,8 @@ h2 {
 .completion {
   padding: 7px 10px;
   border-radius: 999px;
-  color: var(--ink);
-  background: var(--cream);
+  color: var(--coffee);
+  background: #fff0f3;
   font-size: 0.72rem;
   font-weight: 700;
   white-space: nowrap;
@@ -429,7 +448,7 @@ h2 {
 
 .resume-section {
   padding: 22px 0;
-  border-top: 1px solid rgb(255 255 255 / 8%);
+  border-top: 1px solid #f3ecee;
 }
 
 .resume-section h3 {
@@ -461,8 +480,8 @@ h2 {
 .job-meta span {
   padding: 7px 10px;
   border-radius: 8px;
-  color: var(--stone);
-  background: rgb(204 190 177 / 9%);
+  color: var(--coffee);
+  background: #fff0f3;
   font-size: 0.76rem;
 }
 
@@ -479,7 +498,7 @@ h2 {
   gap: 26px;
   min-height: 300px;
   padding: 24px;
-  border-radius: 16px;
+  border-radius: 22px;
 }
 
 .saved-card-top {
@@ -493,6 +512,7 @@ h2 {
   padding: 0 10px;
   border-radius: 8px;
   color: var(--cream);
+  background: #fff5f7;
   font-size: 0.74rem;
 }
 
@@ -531,7 +551,7 @@ h2 {
     height: auto;
     padding: 16px 20px;
     border-right: 0;
-    border-bottom: 1px solid rgb(255 219 187 / 10%);
+    border-bottom: 1px solid #f1e8eb;
   }
 
   .profile {
@@ -561,7 +581,7 @@ h2 {
     flex-direction: column;
   }
 
-  .secondary-button {
+  .page-header .secondary-button {
     display: none;
   }
 
