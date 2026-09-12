@@ -43,6 +43,16 @@ def serialize_job(job, application=None):
     }
 
 
+def serialize_application(application):
+    return {
+        "id": application.id,
+        "stage": application.stage,
+        "stage_label": application.get_stage_display(),
+        "applied_at": application.applied_at.isoformat(),
+        "job": serialize_job(application.job, application),
+    }
+
+
 @require_GET
 def candidate_job_deck(request):
     candidate = get_user(request.GET.get("candidate_id"), UserProfile.Role.CANDIDATE)
@@ -56,6 +66,7 @@ def candidate_job_deck(request):
             default=Value(0), output_field=IntegerField(),
         )
     ).order_by("deck_order", "-created_at")
+    jobs = [job for job in jobs if not applications.get(job.id) or applications[job.id].candidate_decision == Application.CandidateDecision.SKIPPED]
     return JsonResponse({"jobs": [serialize_job(job, applications.get(job.id)) for job in jobs]})
 
 
@@ -75,7 +86,9 @@ def candidate_swipe(request, job_id):
     if application.recruiter_decision != Application.RecruiterDecision.PENDING:
         return error("This application has already been reviewed", 409)
     application.candidate_decision = "applied" if data["decision"] == "right" else "skipped"
-    application.save(update_fields=["candidate_decision", "updated_at"])
+    if data["decision"] == "right":
+        application.stage = Application.Stage.APPLIED
+    application.save(update_fields=["candidate_decision", "stage", "updated_at"])
     return JsonResponse({"application_id": application.id, "status": application.candidate_decision, "sent_to_recruiter": data["decision"] == "right"})
 
 
@@ -108,8 +121,20 @@ def recruiter_swipe(request, application_id):
     if app.candidate_decision != "applied" or app.recruiter_decision != "pending":
         return error("This application cannot be reviewed", 409)
     app.recruiter_decision = "selected" if data["decision"] == "right" else "rejected"
-    app.save(update_fields=["recruiter_decision", "updated_at"])
+    app.stage = Application.Stage.INTERVIEW if data["decision"] == "right" else Application.Stage.REJECTED
+    app.save(update_fields=["recruiter_decision", "stage", "updated_at"])
     return JsonResponse({"application_id": app.id, "status": app.recruiter_decision, "messaging_unlocked": app.is_match})
+
+
+@require_GET
+def candidate_applications(request):
+    candidate = get_user(request.GET.get("candidate_id"), UserProfile.Role.CANDIDATE)
+    if candidate is None:
+        return error("candidate_id must belong to a candidate", 403)
+    applications = Application.objects.filter(
+        candidate=candidate, candidate_decision=Application.CandidateDecision.APPLIED,
+    ).select_related("job__company").order_by("-updated_at")
+    return JsonResponse({"applications": [serialize_application(application) for application in applications]})
 
 
 def messaging_participant(application_id, user_id):

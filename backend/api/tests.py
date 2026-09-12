@@ -25,6 +25,8 @@ class MatchingFlowTests(TestCase):
 
         selected = self.post(f"/api/applications/{application_id}/swipe/", {"recruiter_id": self.recruiter.id, "decision": "right"})
         self.assertTrue(selected.json()["messaging_unlocked"])
+        applications = self.client.get(f"/api/applications/?candidate_id={self.candidate.id}")
+        self.assertEqual(applications.json()["applications"][0]["stage"], "interview")
         message = self.post(f"/api/applications/{application_id}/messages/send/", {"user_id": self.candidate.id, "body": "Thanks!"})
         self.assertEqual(message.status_code, 201)
 

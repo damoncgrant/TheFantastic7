@@ -127,7 +127,46 @@ function OverviewPage({ profile }) {
   );
 }
 
-function ApplicationsPage() {
+const applicationFilters = ['all', 'applied', 'interview', 'offer', 'rejected'];
+
+function ApplicationsPage({ candidateId }) {
+  const [activeFilter, setActiveFilter] = useState('all');
+  const [applicationsList, setApplicationsList] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    const controller = new AbortController();
+
+    async function loadApplications() {
+      try {
+        setLoading(true);
+        const response = await fetch(`/api/applications/?candidate_id=${encodeURIComponent(candidateId)}`, { signal: controller.signal });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || 'Could not load applications');
+        setApplicationsList(data.applications.map((application) => ({
+          id: application.id,
+          company: application.job.company.name,
+          role: application.job.title,
+          date: new Date(application.applied_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }),
+          status: application.stage_label,
+          profile: application.job.company.logo_url,
+        })));
+      } catch (loadError) {
+        if (loadError.name !== 'AbortError') setError(loadError.message || 'Could not load applications');
+      } finally {
+        if (!controller.signal.aborted) setLoading(false);
+      }
+    }
+
+    loadApplications();
+    return () => controller.abort();
+  }, [candidateId]);
+
+  const filteredApplications = activeFilter === 'all'
+    ? applicationsList
+    : applicationsList.filter((application) => application.status.toLowerCase() === activeFilter);
+
   return (
     <>
       <PageHeader
@@ -138,23 +177,32 @@ function ApplicationsPage() {
       />
 
       <section className="filter-row" aria-label="Application filters">
-        <button className="filter-chip active" type="button">All</button>
-        <button className="filter-chip" type="button">Applied</button>
-        <button className="filter-chip" type="button">Interview</button>
-        <button className="filter-chip" type="button">Offer</button>
+        {applicationFilters.map((filter) => (
+          <button
+            className={`filter-chip ${activeFilter === filter ? 'active' : ''}`}
+            type="button"
+            onClick={() => setActiveFilter(filter)}
+            key={filter}
+          >
+            {filter === 'all' ? 'All' : `${filter.charAt(0).toUpperCase()}${filter.slice(1)}`}
+          </button>
+        ))}
       </section>
 
       <section className="content-panel page-panel" aria-labelledby="all-applications-heading">
         <div className="section-heading">
           <div>
-            <p className="eyebrow">12 total</p>
-            <h2 id="all-applications-heading">All applications</h2>
+            <p className="eyebrow">{filteredApplications.length} shown</p>
+            <h2 id="all-applications-heading">{activeFilter === 'all' ? 'All applications' : `${activeFilter.charAt(0).toUpperCase()}${activeFilter.slice(1)} applications`}</h2>
           </div>
         </div>
         <div className="application-list">
-          {applications.map((application) => (
-            <ApplicationRow application={application} key={`${application.company}-${application.role}`} />
+          {loading && <p>Loading applications…</p>}
+          {!loading && error && <p role="alert">{error}</p>}
+          {!loading && !error && filteredApplications.map((application) => (
+            <ApplicationRow application={application} key={application.id} />
           ))}
+          {!loading && !error && filteredApplications.length === 0 && <p>No applications in this stage yet.</p>}
         </div>
       </section>
     </>
