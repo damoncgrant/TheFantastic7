@@ -4,6 +4,7 @@ import DMPage from './DMPage.jsx';
 import ProfilePage from './ProfilePage';
 import { getInitials, loadProfile } from './profile';
 import ResumeBuilderPage from './resume_builder/ResumePage.jsx';
+import { fetchApplications } from './applications';
 
 // For this hackathon API, the active profile is provided explicitly.
 // Set VITE_CANDIDATE_ID in frontend/.env.local to a UserProfile primary key.
@@ -19,14 +20,6 @@ const applicationStats = [
   { label: 'Applications sent', value: '12' },
   { label: 'Interviews', value: '3' },
   { label: 'Offers', value: '1' },
-];
-
-const applications = [
-  { company: 'Northstar Labs', role: 'Frontend Developer', date: 'Sep 10', status: 'Interview', profile: '/company-profiles/northstar-contact.png' },
-  { company: 'Cedar Systems', role: 'Software Developer', date: 'Sep 8', status: 'Applied', profile: '/company-profiles/cedar-contact.png' },
-  { company: 'Prairie Digital', role: 'UX Engineer', date: 'Sep 5', status: 'Applied', profile: '/company-profiles/prairie-contact.png' },
-  { company: 'Aurora Health', role: 'Product Designer', date: 'Aug 29', status: 'Offer', profile: '/company-profiles/aurora-contact.png' },
-  { company: 'Summit AI', role: 'Junior Developer', date: 'Aug 24', status: 'Rejected' },
 ];
 
 const savedJobs = [
@@ -83,7 +76,25 @@ function ApplicationRow({ application }) {
   );
 }
 
-function OverviewPage({ profile }) {
+function EmptyApplications() {
+  return (
+    <section className="empty-applications">
+      <div>
+        <h2>No outgoing applications</h2>
+        <p>Swipe right on a job to send your first application.</p>
+        <a className="primary-button button-link swipe-button" href="#swipe">
+          <span className="swipe-button-copy">
+            <strong>Start swiping</strong>
+            <small>Find jobs to apply to</small>
+          </span>
+          <span className="swipe-button-icon" aria-hidden="true">→</span>
+        </a>
+      </div>
+    </section>
+  );
+}
+
+function OverviewPage({ profile, applications, applicationsLoading }) {
   return (
     <>
       <PageHeader
@@ -125,17 +136,21 @@ function OverviewPage({ profile }) {
           </div>
           <a href="#applications">View all</a>
         </div>
-        <div className="application-list">
-          {applications.slice(0, 3).map((application) => (
-            <ApplicationRow application={application} key={`${application.company}-${application.role}`} />
-          ))}
-        </div>
+        {applicationsLoading ? null : applications.length === 0 ? (
+          <EmptyApplications />
+        ) : (
+          <div className="application-list">
+            {applications.slice(0, 3).map((application) => (
+              <ApplicationRow application={application} key={application.id} />
+            ))}
+          </div>
+        )}
       </section>
     </>
   );
 }
 
-function ApplicationsPage() {
+function ApplicationsPage({ applications, applicationsLoading }) {
   return (
     <>
       <PageHeader
@@ -155,15 +170,19 @@ function ApplicationsPage() {
       <section className="content-panel page-panel" aria-labelledby="all-applications-heading">
         <div className="section-heading">
           <div>
-            <p className="eyebrow">12 total</p>
+            <p className="eyebrow">{applications.length} total</p>
             <h2 id="all-applications-heading">All applications</h2>
           </div>
         </div>
-        <div className="application-list">
-          {applications.map((application) => (
-            <ApplicationRow application={application} key={`${application.company}-${application.role}`} />
-          ))}
-        </div>
+        {applicationsLoading ? null : applications.length === 0 ? (
+          <EmptyApplications />
+        ) : (
+          <div className="application-list">
+            {applications.map((application) => (
+              <ApplicationRow application={application} key={application.id} />
+            ))}
+          </div>
+        )}
       </section>
     </>
   );
@@ -280,6 +299,8 @@ function getPageFromHash() {
 export default function App({ user, onLogout }) {
   const [activePage, setActivePage] = useState(getPageFromHash);
   const [profile, setProfile] = useState(() => loadProfile(user.email, user.name));
+  const [applications, setApplications] = useState([]);
+  const [applicationsLoading, setApplicationsLoading] = useState(true);
   const ActivePage = pages[activePage];
 
   // Hash navigation keeps this prototype multi-page without adding a router.
@@ -287,6 +308,25 @@ export default function App({ user, onLogout }) {
     const updatePage = () => setActivePage(getPageFromHash());
     window.addEventListener('hashchange', updatePage);
     return () => window.removeEventListener('hashchange', updatePage);
+  }, []);
+
+  useEffect(() => {
+    const controller = new AbortController();
+
+    async function loadApplications() {
+      try {
+        setApplicationsLoading(true);
+        const data = await fetchApplications(candidateId, { signal: controller.signal });
+        setApplications(data);
+      } catch (error) {
+        if (error.name !== 'AbortError') setApplications([]);
+      } finally {
+        if (!controller.signal.aborted) setApplicationsLoading(false);
+      }
+    }
+
+    loadApplications();
+    return () => controller.abort();
   }, []);
 
   return (
@@ -322,7 +362,15 @@ export default function App({ user, onLogout }) {
       </aside>
 
       <main className={`dashboard${activePage === 'resume' ? ' resume-dashboard' : ''}`} key={activePage}>
-        <ActivePage profile={profile} onSave={setProfile} candidateId={candidateId} accountEmail={user.email} onLogout={onLogout} />
+        <ActivePage
+          profile={profile}
+          onSave={setProfile}
+          candidateId={candidateId}
+          accountEmail={user.email}
+          onLogout={onLogout}
+          applications={applications}
+          applicationsLoading={applicationsLoading}
+        />
       </main>
     </div>
   );

@@ -82,6 +82,36 @@ def candidate_swipe(request, job_id):
     return JsonResponse({"application_id": application.id, "status": application.candidate_decision, "sent_to_recruiter": data["decision"] == "right"})
 
 
+def application_status(app):
+    if app.recruiter_decision == Application.RecruiterDecision.SELECTED:
+        return "Interview"
+    if app.recruiter_decision == Application.RecruiterDecision.REJECTED:
+        return "Rejected"
+    return "Applied"
+
+
+def serialize_application(app):
+    return {
+        "id": app.id,
+        "company": app.job.company.name,
+        "role": app.job.title,
+        "date": app.applied_at.strftime("%b %d").replace(" 0", " "),
+        "status": application_status(app),
+        "profile": app.job.company.logo_url or None,
+    }
+
+
+@require_GET
+def candidate_applications(request):
+    candidate = get_user(request.GET.get("candidate_id"), UserProfile.Role.CANDIDATE)
+    if candidate is None:
+        return error("candidate_id must belong to a candidate", 403)
+    applications = Application.objects.filter(
+        candidate=candidate, candidate_decision=Application.CandidateDecision.APPLIED,
+    ).select_related("job__company").order_by("-applied_at")
+    return JsonResponse({"applications": [serialize_application(app) for app in applications]})
+
+
 @require_GET
 def recruiter_candidate_deck(request, job_id):
     recruiter = get_user(request.GET.get("recruiter_id"), UserProfile.Role.RECRUITER)
