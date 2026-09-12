@@ -6,13 +6,9 @@ import { getInitials, loadProfile } from './profile';
 import ResumeBuilderPage from './resume_builder/ResumePage.jsx';
 import { fetchApplications } from './applications';
 
-// For this hackathon API, the active profile is provided explicitly.
-// Set VITE_CANDIDATE_ID in frontend/.env.local to a UserProfile primary key.
-const candidateId = import.meta.env.VITE_CANDIDATE_ID ?? 1;
-
 const roleLabels = {
   applicant: 'Applicant',
-  employer: 'Employer',
+  employer: 'Recruiter',
 };
 
 const savedJobs = [
@@ -93,7 +89,6 @@ function OverviewPage({ profile, applications, applicationsLoading }) {
     { label: 'Interviews', value: applications.filter((application) => application.stage === 'interview').length },
     { label: 'Offers', value: applications.filter((application) => application.stage === 'offer').length },
   ];
-
   return (
     <>
       <PageHeader
@@ -112,7 +107,7 @@ function OverviewPage({ profile, applications, applicationsLoading }) {
         <a className="primary-button button-link swipe-button" href="#swipe">
           <span className="swipe-button-copy">
             <strong>Start swiping</strong>
-            <small>12 new jobs waiting</small>
+            <small>Find jobs to apply to</small>
           </span>
           <span className="swipe-button-icon" aria-hidden="true">→</span>
         </a>
@@ -151,43 +146,11 @@ function OverviewPage({ profile, applications, applicationsLoading }) {
 
 const applicationFilters = ['all', 'applied', 'interview', 'offer', 'rejected'];
 
-function ApplicationsPage({ candidateId }) {
+function ApplicationsPage({ applications, applicationsLoading }) {
   const [activeFilter, setActiveFilter] = useState('all');
-  const [applicationsList, setApplicationsList] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
-
-  useEffect(() => {
-    const controller = new AbortController();
-
-    async function loadApplications() {
-      try {
-        setLoading(true);
-        const response = await fetch(`/api/applications/?candidate_id=${encodeURIComponent(candidateId)}`, { signal: controller.signal });
-        const data = await response.json();
-        if (!response.ok) throw new Error(data.error || 'Could not load applications');
-        setApplicationsList(data.applications.map((application) => ({
-          id: application.id,
-          company: application.job.company.name,
-          role: application.job.title,
-          date: new Date(application.applied_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }),
-          status: application.stage_label,
-          profile: application.job.company.logo_url,
-        })));
-      } catch (loadError) {
-        if (loadError.name !== 'AbortError') setError(loadError.message || 'Could not load applications');
-      } finally {
-        if (!controller.signal.aborted) setLoading(false);
-      }
-    }
-
-    loadApplications();
-    return () => controller.abort();
-  }, [candidateId]);
-
   const filteredApplications = activeFilter === 'all'
-    ? applicationsList
-    : applicationsList.filter((application) => application.status.toLowerCase() === activeFilter);
+    ? applications
+    : applications.filter((application) => application.stage === activeFilter);
 
   return (
     <>
@@ -214,28 +177,33 @@ function ApplicationsPage({ candidateId }) {
         <div className="section-heading">
           <div>
             <p className="eyebrow">{filteredApplications.length} shown</p>
-            <h2 id="all-applications-heading">{activeFilter === 'all' ? 'All applications' : `${activeFilter.charAt(0).toUpperCase()}${activeFilter.slice(1)} applications`}</h2>
+            <h2 id="all-applications-heading">
+              {activeFilter === 'all' ? 'All applications' : `${activeFilter.charAt(0).toUpperCase()}${activeFilter.slice(1)} applications`}
+            </h2>
           </div>
         </div>
-        <div className="application-list">
-          {loading && <p>Loading applications…</p>}
-          {!loading && error && <p role="alert">{error}</p>}
-          {!loading && !error && filteredApplications.map((application) => (
-            <ApplicationRow application={application} key={application.id} />
-          ))}
-          {!loading && !error && filteredApplications.length === 0 && <p>No applications in this stage yet.</p>}
-        </div>
+        {applicationsLoading ? (
+          <p>Loading applications…</p>
+        ) : filteredApplications.length === 0 ? (
+          <EmptyApplications />
+        ) : (
+          <div className="application-list">
+            {filteredApplications.map((application) => (
+              <ApplicationRow application={application} key={application.id} />
+            ))}
+          </div>
+        )}
       </section>
     </>
   );
 }
 
-function ResumePage({ profile }) {
+function ResumePage() {
   return (
     <>
       <PageHeader
         eyebrow="Your master profile"
-        title="Resume"
+        title="Resume"  
         description="Keep one strong foundation ready to tailor for each role."
         action={<button className="primary-button" type="button">Edit resume</button>}
       />
@@ -245,15 +213,15 @@ function ResumePage({ profile }) {
           <div className="resume-nameplate">
             <div>
               <p className="eyebrow">Master resume</p>
-              <h2>{profile.name}</h2>
-              <span>{[profile.headline, profile.location].filter(Boolean).join(' • ')}</span>
+              <h2>Chud</h2>
+              <span>Software Developer • Edmonton, AB</span>
             </div>
             <span className="completion">85% complete</span>
           </div>
 
           <div className="resume-section">
             <h3>Summary</h3>
-            <p>{profile.bio}</p>
+            <p>Computer science student interested in thoughtful software, accessible interfaces, and collaborative teams.</p>
           </div>
           <div className="resume-section">
             <h3>Experience</h3>
@@ -298,11 +266,7 @@ function SavedJobsPage() {
         {savedJobs.map((job) => (
           <article className="saved-card" key={`${job.company}-${job.role}`}>
             <div className="saved-card-top">
-              <img
-                className="company-profile saved-profile"
-                src={job.profile}
-                alt={`Company contact for ${job.company}`}
-              />
+              <span className="company-mark" aria-hidden="true">{job.company.charAt(0)}</span>
               <button className="bookmark-button" type="button" aria-label={`Remove ${job.role} from saved jobs`}>
                 Saved
               </button>
@@ -326,10 +290,10 @@ function SavedJobsPage() {
 const pages = {
   overview: OverviewPage,
   applications: ApplicationsPage,
+  messages: DMPage,
   resume: ResumeBuilderPage,
   saved: SavedJobsPage,
   swipe: JobSwiper,
-  messages: DMPage,
   profile: ProfilePage,
 };
 
@@ -362,7 +326,7 @@ export default function App({ user, onLogout }) {
     async function loadApplications() {
       try {
         setApplicationsLoading(true);
-        const data = await fetchApplications(candidateId, { signal: controller.signal });
+        const data = await fetchApplications(user.profile_id, { signal: controller.signal });
         setApplications(data);
       } catch (error) {
         if (error.name !== 'AbortError') setApplications([]);
@@ -373,7 +337,7 @@ export default function App({ user, onLogout }) {
 
     loadApplications();
     return () => controller.abort();
-  }, [activePage]);
+  }, [activePage, user.profile_id]);
 
   return (
     <div className="app-shell">
@@ -388,7 +352,6 @@ export default function App({ user, onLogout }) {
             <a
               className={`nav-link ${activePage === item.id ? 'active' : ''}`}
               href={`#${item.id}`}
-              aria-current={activePage === item.id ? 'page' : undefined}
               key={item.id}
             >
               {item.label}
@@ -396,7 +359,12 @@ export default function App({ user, onLogout }) {
           ))}
         </nav>
 
-        <a className={`profile ${activePage === 'profile' ? 'active' : ''}`} href="#profile" aria-label="Edit personal profile" aria-current={activePage === 'profile' ? 'page' : undefined}>
+        <a
+          className={`profile ${activePage === 'profile' ? 'active' : ''}`}
+          href="#profile"
+          aria-label="Edit personal profile"
+          aria-current={activePage === 'profile' ? 'page' : undefined}
+        >
           <span className="avatar" aria-hidden="true">
             {profile.picture ? <img src={profile.picture} alt="" /> : getInitials(profile.name)}
           </span>
@@ -411,7 +379,7 @@ export default function App({ user, onLogout }) {
         <ActivePage
           profile={profile}
           onSave={setProfile}
-          candidateId={candidateId}
+          candidateId={user.profile_id}
           accountEmail={user.email}
           onLogout={onLogout}
           applications={applications}
