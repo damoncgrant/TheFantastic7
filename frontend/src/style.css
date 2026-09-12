@@ -1219,6 +1219,43 @@ h2 {
   transition-duration: 220ms;
 }
 
+/* Candidate deck uses the same card mechanics as recruiter review, with job-focused content. */
+.candidate-swipe-screen {
+  --recruiter-navy: #352846;
+  --recruiter-teal: #bd4b69;
+  --recruiter-blue: #7c5a9a;
+  --recruiter-teal-light: #fce9ee;
+}
+
+.candidate-swipe-company {
+  position: relative;
+  display: grid;
+  place-items: center;
+  min-height: 275px;
+  background: radial-gradient(circle at 78% 20%, color-mix(in srgb, var(--company-accent) 35%, transparent), transparent 34%), linear-gradient(145deg, #352846, var(--company-accent));
+}
+
+.candidate-swipe-company .recruiter-swipe-avatar {
+  background: rgb(255 255 255 / 18%);
+  box-shadow: 0 10px 26px rgb(0 0 0 / 22%);
+}
+
+.candidate-swipe-details h2 { color: #352846; }
+.candidate-swipe-description { color: #51475c; line-height: 1.6; }
+.candidate-swipe-empty,
+.candidate-swipe-state {
+  margin: 44px auto;
+  max-width: 440px;
+  padding: 34px;
+  border: 1px dashed #decbd4;
+  border-radius: 18px;
+  color: #765f6a;
+  background: #fff9fa;
+  text-align: center;
+}
+.candidate-swipe-empty > span { color: #bd4b69; font-size: 2rem; }
+.candidate-swipe-state.error { color: #b4233d; }
+
 .recruiter-swipe-portrait {
   position: relative;
   display: grid;
