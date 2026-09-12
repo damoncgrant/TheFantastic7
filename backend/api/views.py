@@ -1,8 +1,11 @@
 import json
+import mimetypes
+from urllib.parse import quote
+from uuid import uuid4
 
 from django.db import transaction
 from django.db.models import Case, Count, IntegerField, Q, Value, When
-from django.http import HttpResponse, JsonResponse
+from django.http import FileResponse, HttpResponse, JsonResponse
 from django.middleware.csrf import get_token
 from django.shortcuts import get_object_or_404
 from django.views.decorators.csrf import csrf_exempt
@@ -28,6 +31,62 @@ def request_json(request):
         return json.loads(request.body or "{}")
     except json.JSONDecodeError:
         return None
+
+
+def recruiter_job_request_data(request):
+    """Read either JSON or the multipart payload used when a photo is attached."""
+    if request.content_type and request.content_type.startswith("multipart/form-data"):
+        data = request.POST.dict()
+        try:
+            data["requirements"] = json.loads(data.get("requirements", "[]"))
+        except json.JSONDecodeError:
+            return None
+        return data
+    return request_json(request)
+
+
+def prepare_job_photo(upload):
+    """Validate an uploaded image by size and file signature, then give it a safe name."""
+    if upload is None:
+        return None, None
+    if upload.size > 5 * 1024 * 1024:
+        return None, error("Choose a job photo smaller than 5 MB.")
+
+    header = upload.read(12)
+    upload.seek(0)
+    if header.startswith(b"\x89PNG\r\n\x1a\n"):
+        extension = "png"
+    elif header.startswith(b"\xff\xd8\xff"):
+        extension = "jpg"
+    elif header.startswith(b"RIFF") and header[8:12] == b"WEBP":
+        extension = "webp"
+    else:
+        return None, error("Choose a PNG, JPEG, or WebP job photo.")
+
+    upload.name = f"job-{uuid4().hex}.{extension}"
+    return upload, None
+
+
+def prepare_profile_photo(upload):
+    """Validate a candidate profile image and replace its original filename."""
+    if upload is None:
+        return None, error("Choose a profile picture to upload.")
+    if upload.size > 5 * 1024 * 1024:
+        return None, error("Choose a profile picture smaller than 5 MB.")
+
+    header = upload.read(12)
+    upload.seek(0)
+    if header.startswith(b"\x89PNG\r\n\x1a\n"):
+        extension = "png"
+    elif header.startswith(b"\xff\xd8\xff"):
+        extension = "jpg"
+    elif header.startswith(b"RIFF") and header[8:12] == b"WEBP":
+        extension = "webp"
+    else:
+        return None, error("Choose a PNG, JPEG, or WebP profile picture.")
+
+    upload.name = f"candidate-{uuid4().hex}.{extension}"
+    return upload, None
 
 
 def authenticated_user(request):
@@ -176,6 +235,7 @@ def serialize_job(job, application=None):
         "location": job.location, "compensation": job.compensation,
         "employment_type": job.employment_type, "requirements": job.requirements,
         "company": {"id": job.company_id, "name": job.company.name, "logo_url": job.company.logo_url},
+        "photo_url": f"/api/jobs/{job.id}/photo/?v={quote(job.photo.name, safe='')}" if job.photo else "",
         "swipe_status": application.candidate_decision if application else "new",
     }
 
@@ -186,6 +246,7 @@ def serialize_application(application):
         "stage": application.stage,
         "stage_label": application.get_stage_display(),
         "applied_at": application.applied_at.isoformat(),
+        "resume": {"id": application.resume_id, "name": application.resume.name} if application.resume_id else None,
         "job": serialize_job(application.job, application),
     }
 
@@ -219,10 +280,17 @@ def serialize_recruiter_job(job):
 def serialize_recruiter_candidate(application):
     return {
         "application_id": application.id,
+        # Include the posting id so the Manage page can show only this job's applicants.
+        "job_id": application.job_id,
         "name": application.candidate.name,
         "headline": application.candidate.headline,
         "bio": application.candidate.bio,
         "skills": application.candidate.skills,
+        "photo_url": (
+            f"/api/candidates/{application.candidate_id}/photo/"
+            f"?v={quote(application.candidate.photo.name, safe='')}"
+            if application.candidate.photo else ""
+        ),
         "job_title": application.job.title,
         "company_name": application.job.company.name,
         "recruiter_decision": application.recruiter_decision,
@@ -249,6 +317,58 @@ def candidate_job_deck(request):
     return JsonResponse({"jobs": [serialize_job(job, applications.get(job.id)) for job in jobs]})
 
 
+@require_GET
+def job_photo(request, job_id):
+    job = get_object_or_404(Job.objects.exclude(photo=""), pk=job_id)
+    content_type = mimetypes.guess_type(job.photo.name)[0] or "application/octet-stream"
+    response = FileResponse(job.photo.open("rb"), content_type=content_type)
+    response["Cache-Control"] = "public, max-age=3600"
+    return response
+
+
+@require_GET
+def candidate_photo(request, candidate_id):
+    candidate = get_object_or_404(UserProfile.objects.exclude(photo=""), pk=candidate_id)
+    content_type = mimetypes.guess_type(candidate.photo.name)[0] or "application/octet-stream"
+    response = FileResponse(candidate.photo.open("rb"), content_type=content_type)
+    response["Cache-Control"] = "public, max-age=3600"
+    return response
+
+
+@require_http_methods(["POST", "DELETE"])
+def candidate_profile_photo(request):
+    """Replace or remove the signed-in candidate's profile picture."""
+    candidate, response = authenticated_profile(request, UserProfile.Role.CANDIDATE)
+    if response:
+        return response
+
+    if request.method == "DELETE":
+        if candidate.photo:
+            storage = candidate.photo.storage
+            old_name = candidate.photo.name
+            candidate.photo = ""
+            candidate.save(update_fields=["photo"])
+            storage.delete(old_name)
+        return JsonResponse({"photo_url": ""})
+
+    photo, photo_error = prepare_profile_photo(request.FILES.get("photo"))
+    if photo_error:
+        return photo_error
+
+    storage = candidate.photo.storage
+    old_name = candidate.photo.name if candidate.photo else ""
+    candidate.photo = photo
+    candidate.save(update_fields=["photo"])
+    if old_name and old_name != candidate.photo.name:
+        storage.delete(old_name)
+    return JsonResponse({
+        "photo_url": (
+            f"/api/candidates/{candidate.id}/photo/"
+            f"?v={quote(candidate.photo.name, safe='')}"
+        ),
+    })
+
+
 @csrf_exempt
 @require_http_methods(["POST"])
 def candidate_swipe(request, job_id):
@@ -261,13 +381,21 @@ def candidate_swipe(request, job_id):
     if data.get("decision") not in {"right", "left"}:
         return error("decision must be 'right' or 'left'")
     job = get_object_or_404(Job, pk=job_id, is_active=True)
+    selected_resume = None
+    if data["decision"] == "right" and request.user.is_authenticated:
+        resume_id = data.get("resume_id")
+        resumes = Resume.objects.filter(user=request.user)
+        selected_resume = get_object_or_404(resumes, pk=resume_id) if resume_id else resumes.filter(is_default=True).first()
+        if selected_resume is None:
+            return error("Create a resume before applying to a job.", 409)
     application, _ = Application.objects.get_or_create(job=job, candidate=candidate, defaults={"candidate_decision": "skipped"})
     if application.recruiter_decision != Application.RecruiterDecision.PENDING:
         return error("This application has already been reviewed", 409)
     application.candidate_decision = "applied" if data["decision"] == "right" else "skipped"
     if data["decision"] == "right":
         application.stage = Application.Stage.APPLIED
-    application.save(update_fields=["candidate_decision", "stage", "updated_at"])
+        application.resume = selected_resume
+    application.save(update_fields=["candidate_decision", "stage", "resume", "updated_at"])
     return JsonResponse({"application_id": application.id, "status": application.candidate_decision, "sent_to_recruiter": data["decision"] == "right"})
 
 
@@ -307,9 +435,13 @@ def recruiter_jobs(request):
         jobs = recruiter_jobs_queryset(recruiter)
         return JsonResponse({"jobs": [serialize_recruiter_job(job) for job in jobs]})
 
-    data = request_json(request)
+    data = recruiter_job_request_data(request)
     if not isinstance(data, dict):
         return error("Job data must be valid JSON.")
+
+    photo, photo_error = prepare_job_photo(request.FILES.get("photo"))
+    if photo_error:
+        return photo_error
 
     required_fields = {
         "company_name": 120,
@@ -368,9 +500,121 @@ def recruiter_jobs(request):
         compensation=values["compensation"],
         employment_type=values["employment_type"],
         requirements=requirements,
+        photo=photo,
         is_active=True,
     )
     return JsonResponse({"job": serialize_recruiter_job(job)}, status=201)
+
+
+@require_http_methods(["GET", "PATCH"])
+def recruiter_job_detail(request, job_id):
+    """Read or update one job owned by the signed-in recruiter."""
+    recruiter, response = authenticated_profile(request, UserProfile.Role.RECRUITER)
+    if response:
+        return response
+
+    job = get_object_or_404(
+        Job.objects.select_related("company"),
+        pk=job_id,
+        recruiter=recruiter,
+    )
+    if request.method == "GET":
+        return JsonResponse({"job": serialize_recruiter_job(job)})
+
+    data = request_json(request)
+    if not isinstance(data, dict):
+        return error("Job data must be valid JSON.")
+
+    text_fields = {
+        "title": 160,
+        "description": None,
+        "location": 120,
+        "compensation": 120,
+        "employment_type": 60,
+    }
+    changed_fields = []
+    for field, max_length in text_fields.items():
+        if field not in data:
+            continue
+        value = data[field]
+        if not isinstance(value, str) or not value.strip():
+            return error(f"{field.replace('_', ' ').capitalize()} is required.")
+        value = value.strip()
+        if max_length and len(value) > max_length:
+            return error(f"{field.replace('_', ' ').capitalize()} is too long.")
+        setattr(job, field, value)
+        changed_fields.append(field)
+
+    if "requirements" in data:
+        requirements = data["requirements"]
+        if not isinstance(requirements, list) or not all(isinstance(item, str) for item in requirements):
+            return error("Requirements must be a list of text values.")
+        requirements = [item.strip() for item in requirements if item.strip()]
+        if len(requirements) > 20 or any(len(item) > 100 for item in requirements):
+            return error("Add no more than 20 requirements of 100 characters each.")
+        job.requirements = requirements
+        changed_fields.append("requirements")
+
+    if "is_active" in data:
+        if not isinstance(data["is_active"], bool):
+            return error("Active status must be true or false.")
+        job.is_active = data["is_active"]
+        changed_fields.append("is_active")
+
+    if "company_name" in data:
+        company_name = data["company_name"]
+        if not isinstance(company_name, str) or not company_name.strip():
+            return error("Company name is required.")
+        company_name = company_name.strip()
+        if len(company_name) > 120:
+            return error("Company name is too long.")
+        company = Company.objects.filter(name__iexact=company_name).first()
+        if company is None:
+            company = Company.objects.create(name=company_name)
+        job.company = company
+        changed_fields.append("company")
+
+    if not changed_fields:
+        return error("Provide at least one job field to update.")
+
+    job.save(update_fields=list(dict.fromkeys(changed_fields)))
+    return JsonResponse({"job": serialize_recruiter_job(job)})
+
+
+@require_http_methods(["POST", "DELETE"])
+def recruiter_job_photo(request, job_id):
+    """Replace or remove the photo for a job owned by the signed-in recruiter."""
+    recruiter, response = authenticated_profile(request, UserProfile.Role.RECRUITER)
+    if response:
+        return response
+    job = get_object_or_404(
+        Job.objects.select_related("company"),
+        pk=job_id,
+        recruiter=recruiter,
+    )
+
+    if request.method == "DELETE":
+        if job.photo:
+            storage = job.photo.storage
+            old_name = job.photo.name
+            job.photo = ""
+            job.save(update_fields=["photo"])
+            storage.delete(old_name)
+        return JsonResponse({"job": serialize_recruiter_job(job)})
+
+    photo, photo_error = prepare_job_photo(request.FILES.get("photo"))
+    if photo_error:
+        return photo_error
+    if photo is None:
+        return error("Choose a job photo to upload.")
+
+    storage = job.photo.storage
+    old_name = job.photo.name if job.photo else ""
+    job.photo = photo
+    job.save(update_fields=["photo"])
+    if old_name and old_name != job.photo.name:
+        storage.delete(old_name)
+    return JsonResponse({"job": serialize_recruiter_job(job)})
 
 
 @require_GET
@@ -404,14 +648,14 @@ def recruiter_swipe(request, application_id):
     app.stage = Application.Stage.OFFER if data["decision"] == "right" else Application.Stage.REJECTED
     app.save(update_fields=["recruiter_decision", "stage", "updated_at"])
     if app.is_match:
-    Message.objects.create(
-        application=app,
-        sender=recruiter,
-        body=(
-            f"Great news! You matched with {app.job.company.name} "
-            f"for the {app.job.title} role. Start the conversation here."
-        ),
-    )
+        Message.objects.create(
+            application=app,
+            sender=recruiter,
+            body=(
+                f"Great news! You matched with {app.job.company.name} "
+                f"for the {app.job.title} role. Start the conversation here."
+            ),
+        )
     return JsonResponse({
         "application_id": app.id,
         "status": app.recruiter_decision,

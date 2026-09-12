@@ -7,11 +7,12 @@ function getCookie(name) {
 }
 
 export async function apiRequest(path, options = {}) {
+  const isFormData = options.body instanceof FormData;
   const response = await fetch(path, {
     ...options,
     credentials: 'same-origin',
     headers: {
-      'Content-Type': 'application/json',
+      ...(!isFormData && { 'Content-Type': 'application/json' }),
       'X-CSRFToken': getCookie('csrftoken') ?? '',
       ...options.headers,
     },
@@ -54,11 +55,55 @@ export function fetchRecruiterDashboard(options) {
   return apiRequest('/api/recruiter/dashboard/', options);
 }
 
-export function createRecruiterJob(job) {
+export function createRecruiterJob(job, photo) {
+  if (photo) {
+    const formData = new FormData();
+    Object.entries(job).forEach(([key, value]) => {
+      formData.append(key, key === 'requirements' ? JSON.stringify(value) : value);
+    });
+    formData.append('photo', photo);
+    return apiRequest('/api/recruiter/jobs/', {
+      method: 'POST',
+      body: formData,
+    });
+  }
   return apiRequest('/api/recruiter/jobs/', {
     method: 'POST',
     body: JSON.stringify(job),
   });
+}
+
+export function updateRecruiterJob(jobId, changes) {
+  return apiRequest(`/api/recruiter/jobs/${jobId}/`, {
+    method: 'PATCH',
+    body: JSON.stringify(changes),
+  });
+}
+
+export function uploadRecruiterJobPhoto(jobId, photo) {
+  const formData = new FormData();
+  formData.append('photo', photo);
+  return apiRequest(`/api/recruiter/jobs/${jobId}/photo/`, {
+    method: 'POST',
+    body: formData,
+  });
+}
+
+export function removeRecruiterJobPhoto(jobId) {
+  return apiRequest(`/api/recruiter/jobs/${jobId}/photo/`, { method: 'DELETE' });
+}
+
+export function uploadCandidateProfilePhoto(photo) {
+  const formData = new FormData();
+  formData.append('photo', photo);
+  return apiRequest('/api/candidate/profile/photo/', {
+    method: 'POST',
+    body: formData,
+  });
+}
+
+export function removeCandidateProfilePhoto() {
+  return apiRequest('/api/candidate/profile/photo/', { method: 'DELETE' });
 }
 
 export function reviewCandidateApplication(applicationId, decision) {
@@ -66,4 +111,9 @@ export function reviewCandidateApplication(applicationId, decision) {
     method: 'POST',
     body: JSON.stringify({ decision }),
   });
+}
+
+export async function createResume(payload) {
+  await fetchCsrf();
+  return apiRequest('/api/resumes/', { method: 'POST', body: JSON.stringify(payload) });
 }

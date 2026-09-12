@@ -12,6 +12,11 @@ class NotificationTests(TestCase):
         self.user = get_user_model().objects.create_user(email="ava@example.com", name="Ava", role="applicant")
         self.candidate = UserProfile.objects.create(name="Ava", email=self.user.email, role="candidate")
         self.recruiter = UserProfile.objects.create(name="Riley", email="riley@example.com", role="recruiter")
+        self.recruiter_user = get_user_model().objects.create_user(
+            email=self.recruiter.email,
+            name=self.recruiter.name,
+            role="employer",
+        )
         company = Company.objects.create(name="Northstar")
         self.job = Job.objects.create(company=company, recruiter=self.recruiter, title="Developer", description="Build APIs", location="Edmonton", compensation="$80k")
         self.application = Application.objects.create(job=self.job, candidate=self.candidate, candidate_decision="applied")
@@ -88,13 +93,15 @@ class NotificationTests(TestCase):
         self.assertEqual(self.application.stage, "applied")
 
     def test_recruiter_endpoints_create_status_and_message_notifications(self):
+        self.client.force_login(self.recruiter_user)
         response = self.client.post(f"/api/applications/{self.application.id}/swipe/",
-                                    json.dumps({"recruiter_id": self.recruiter.id, "decision": "right"}), content_type="application/json")
+                                    json.dumps({"decision": "right"}), content_type="application/json")
         self.assertEqual(response.status_code, 200)
         response = self.client.post(f"/api/applications/{self.application.id}/messages/send/",
                                     json.dumps({"user_id": self.recruiter.id, "body": "Welcome!"}), content_type="application/json")
         self.assertEqual(response.status_code, 201)
         self.assertEqual(list(Notification.objects.values_list("kind", flat=True)), ["message", "status"])
+        self.client.force_login(self.user)
         response = self.client.get("/api/notifications/")
         self.assertEqual(response.json()["unreadCount"], 2)
         self.assertEqual(response.json()["notifications"][0]["sender"], "Riley")
@@ -126,8 +133,7 @@ class NotificationTests(TestCase):
     def test_permissions_methods_and_csrf(self):
         self.client.logout()
         self.assertEqual(self.client.get("/api/notifications/").status_code, 401)
-        employer = get_user_model().objects.create_user(email=self.recruiter.email, role="employer")
-        self.client.force_login(employer)
+        self.client.force_login(self.recruiter_user)
         self.assertEqual(self.client.get("/api/notifications/").status_code, 403)
         self.client.force_login(self.user)
         self.assertEqual(self.client.get("/api/notifications/read-all/").status_code, 405)

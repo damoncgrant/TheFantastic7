@@ -1,6 +1,7 @@
 # Session-based auth API: CSRF bootstrap, signup, login, logout, and the
 # "who am I" check the frontend uses to decide which screen to show.
 import json
+from urllib.parse import quote
 
 from django.contrib.auth import authenticate, get_user_model, login, logout
 from django.http import JsonResponse
@@ -20,6 +21,10 @@ def _user_payload(user):
         "role": user.role,
         "profile_id": profile.id,
         "candidateId": profile.id if profile.role == UserProfile.Role.CANDIDATE else None,
+        "picture_url": (
+            f"/api/candidates/{profile.id}/photo/?v={quote(profile.photo.name, safe='')}"
+            if profile.photo else ""
+        ),
     }
 
 
