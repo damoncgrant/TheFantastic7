@@ -93,7 +93,7 @@ function OverviewPage({ profile, applications, applicationsLoading }) {
     <>
       <PageHeader
         eyebrow="Your job search, organized"
-        title="Good morning, Chud."
+        title={`Good morning, ${profile.name}.`}
         description="Keep moving toward work that fits your life."
         action={<a className="secondary-button button-link" href="#resume">Edit resume</a>}
       />
@@ -104,13 +104,13 @@ function OverviewPage({ profile, applications, applicationsLoading }) {
           <h2 id="swipe-heading">Find your next fit.</h2>
           <p>Review roles chosen around your skills and preferences.</p>
         </div>
-        <button className="primary-button swipe-button" type="button">
+        <a className="primary-button button-link swipe-button" href="#swipe">
           <span className="swipe-button-copy">
             <strong>Start swiping</strong>
-            <small>12 new jobs waiting</small>
+            <small>Find jobs to apply to</small>
           </span>
           <span className="swipe-button-icon" aria-hidden="true">→</span>
-        </button>
+        </a>
       </section>
 
       <section className="stats-grid" aria-label="Application summary">
@@ -144,35 +144,55 @@ function OverviewPage({ profile, applications, applicationsLoading }) {
   );
 }
 
-function ApplicationsPage() {
+const applicationFilters = ['all', 'applied', 'interview', 'offer', 'rejected'];
+
+function ApplicationsPage({ applications, applicationsLoading }) {
+  const [activeFilter, setActiveFilter] = useState('all');
+  const filteredApplications = activeFilter === 'all'
+    ? applications
+    : applications.filter((application) => application.stage === activeFilter);
+
   return (
     <>
       <PageHeader
         eyebrow="Track your progress"
         title="Applications"
         description="Every opportunity and update in one place."
-        action={<button className="primary-button" type="button">Add application</button>}
       />
 
       <section className="filter-row" aria-label="Application filters">
-        <button className="filter-chip active" type="button">All</button>
-        <button className="filter-chip" type="button">Applied</button>
-        <button className="filter-chip" type="button">Interview</button>
-        <button className="filter-chip" type="button">Offer</button>
+        {applicationFilters.map((filter) => (
+          <button
+            className={`filter-chip ${activeFilter === filter ? 'active' : ''}`}
+            type="button"
+            onClick={() => setActiveFilter(filter)}
+            key={filter}
+          >
+            {filter === 'all' ? 'All' : `${filter.charAt(0).toUpperCase()}${filter.slice(1)}`}
+          </button>
+        ))}
       </section>
 
       <section className="content-panel page-panel" aria-labelledby="all-applications-heading">
         <div className="section-heading">
           <div>
-            <p className="eyebrow">12 total</p>
-            <h2 id="all-applications-heading">All applications</h2>
+            <p className="eyebrow">{filteredApplications.length} shown</p>
+            <h2 id="all-applications-heading">
+              {activeFilter === 'all' ? 'All applications' : `${activeFilter.charAt(0).toUpperCase()}${activeFilter.slice(1)} applications`}
+            </h2>
           </div>
         </div>
-        <div className="application-list">
-          {applications.map((application) => (
-            <ApplicationRow application={application} key={`${application.company}-${application.role}`} />
-          ))}
-        </div>
+        {applicationsLoading ? (
+          <p>Loading applications…</p>
+        ) : filteredApplications.length === 0 ? (
+          <EmptyApplications />
+        ) : (
+          <div className="application-list">
+            {filteredApplications.map((application) => (
+              <ApplicationRow application={application} key={application.id} />
+            ))}
+          </div>
+        )}
       </section>
     </>
   );
@@ -268,19 +288,21 @@ function SavedJobsPage() {
 }
 
 const pages = {
-  overview: <OverviewPage />,
-  applications: <ApplicationsPage />,
-  resume: <ResumePage />,
-  saved: <SavedJobsPage />,
+  overview: OverviewPage,
+  applications: ApplicationsPage,
+  messages: DMPage,
+  resume: ResumeBuilderPage,
+  saved: SavedJobsPage,
+  swipe: JobSwiper,
+  profile: ProfilePage,
 };
 
 function getPageFromHash() {
   const page = window.location.hash.slice(1);
-  return pages[page] ? page : 'overview';
+  return Object.hasOwn(pages, page) ? page : 'overview';
 }
 
-export default function App() {
-  const [activePage, setActivePage] = useState(getPageFromHash);
+export default function App({ user, onLogout }) {
   const [activePage, setActivePage] = useState(getPageFromHash);
   const [profile, setProfile] = useState(() => loadProfile(user.email, user.name));
   const [applications, setApplications] = useState([]);
@@ -304,7 +326,7 @@ export default function App() {
     async function loadApplications() {
       try {
         setApplicationsLoading(true);
-        const data = await fetchApplications(candidateId, { signal: controller.signal });
+        const data = await fetchApplications(user.profile_id, { signal: controller.signal });
         setApplications(data);
       } catch (error) {
         if (error.name !== 'AbortError') setApplications([]);
@@ -315,7 +337,7 @@ export default function App() {
 
     loadApplications();
     return () => controller.abort();
-  }, [activePage]);
+  }, [activePage, user.profile_id]);
 
   return (
     <div className="app-shell">
@@ -337,26 +359,32 @@ export default function App() {
           ))}
         </nav>
 
-        <div className="profile">
-          <span className="avatar" aria-hidden="true">CH</span>
-          <span>
-            <strong>Chud</strong>
-            <small>Job seeker</small>
+        <a
+          className={`profile ${activePage === 'profile' ? 'active' : ''}`}
+          href="#profile"
+          aria-label="Edit personal profile"
+          aria-current={activePage === 'profile' ? 'page' : undefined}
+        >
+          <span className="avatar" aria-hidden="true">
+            {profile.picture ? <img src={profile.picture} alt="" /> : getInitials(profile.name)}
           </span>
-        </div>
+          <span>
+            <strong>{profile.name}</strong>
+            <small>{roleLabels[user.role] ?? user.role}</small>
+          </span>
+        </a>
       </aside>
 
       <main className={`dashboard${activePage === 'resume' ? ' resume-dashboard' : ''}`} key={activePage}>
         <ActivePage
           profile={profile}
           onSave={setProfile}
-          candidateId={candidateId}
+          candidateId={user.profile_id}
           accountEmail={user.email}
           onLogout={onLogout}
           applications={applications}
           applicationsLoading={applicationsLoading}
         />
-      </main>
       </main>
     </div>
   );
