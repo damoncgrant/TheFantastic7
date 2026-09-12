@@ -412,6 +412,15 @@ def recruiter_swipe(request, application_id):
     app.recruiter_decision = "selected" if data["decision"] == "right" else "rejected"
     app.stage = Application.Stage.OFFER if data["decision"] == "right" else Application.Stage.REJECTED
     app.save(update_fields=["recruiter_decision", "stage", "updated_at"])
+    if app.is_match:
+    Message.objects.create(
+        application=app,
+        sender=recruiter,
+        body=(
+            f"Great news! You matched with {app.job.company.name} "
+            f"for the {app.job.title} role. Start the conversation here."
+        ),
+    )
     return JsonResponse({
         "application_id": app.id,
         "status": app.recruiter_decision,
