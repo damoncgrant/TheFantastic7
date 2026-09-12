@@ -6,12 +6,16 @@ from django.contrib.auth import authenticate, get_user_model, login, logout
 from django.http import JsonResponse
 from django.views.decorators.csrf import ensure_csrf_cookie
 from django.views.decorators.http import require_GET, require_POST
+from api.models import UserProfile
+from api.identity import matching_profile
 
 User = get_user_model()
 
 
 def _user_payload(user):
-    return {"email": user.email, "name": user.name, "role": user.role}
+    profile = matching_profile(user)
+    return {"email": user.email, "name": user.name, "role": user.role,
+            "candidateId": profile.id if profile.role == UserProfile.Role.CANDIDATE else None}
 
 
 def _parse_body(request):

@@ -822,6 +822,93 @@ h2 {
   box-shadow: none;
 }
 
+.notification-count {
+  display: inline-block;
+  margin-left: 8px;
+  padding: 2px 7px;
+  border-radius: 999px;
+  color: var(--white);
+  background: var(--coffee);
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.notification-list {
+  display: grid;
+  gap: 12px;
+}
+
+.notification-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  padding: 20px;
+  border: 1px solid #f2e9ec;
+  border-radius: 16px;
+}
+
+.notification-row.unread {
+  background: var(--panel-light);
+  border-color: #ffd1dc;
+}
+
+.notification-content {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.notification-title {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.notification-title h2 {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.notification-context,
+.notification-content time,
+.notifications-empty p {
+  color: var(--muted);
+  font-size: 0.84rem;
+  line-height: 1.6;
+}
+
+.notification-body {
+  white-space: pre-wrap;
+  line-height: 1.6;
+}
+
+.notification-actions {
+  margin-top: 14px;
+}
+
+.notification-actions button:disabled,
+.notifications-mark-all:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.notification-actions button:focus-visible,
+.notifications-mark-all:focus-visible {
+  outline: 2px solid var(--coffee);
+  outline-offset: 3px;
+}
+
+.notification-error {
+  color: #b4233d;
+  margin-bottom: 20px;
+}
+
+.notifications-empty {
+  padding: 20px 0;
+}
+
 /* Collapse navigation and content into a single column for phones/tablets. */
 @media (max-width: 760px) {
   .app-shell {
@@ -875,6 +962,15 @@ h2 {
 
   .page-header .secondary-button {
     display: none;
+  }
+
+  .page-header .notifications-mark-all {
+    display: inline-flex;
+  }
+
+  .notification-row {
+    padding: 14px;
+    gap: 10px;
   }
 
   .swipe-card {
