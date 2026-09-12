@@ -67,3 +67,8 @@ export function reviewCandidateApplication(applicationId, decision) {
     body: JSON.stringify({ decision }),
   });
 }
+
+export async function createResume(payload) {
+  await fetchCsrf();
+  return apiRequest('/api/resumes/', { method: 'POST', body: JSON.stringify(payload) });
+}
