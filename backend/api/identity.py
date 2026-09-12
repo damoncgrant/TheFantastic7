@@ -9,8 +9,8 @@ def ensure_user_profile(account):
         else UserProfile.Role.CANDIDATE
     )
     profile, _ = UserProfile.objects.get_or_create(
-        email=account.email,
-        defaults={"name": account.name or account.email, "role": role},
+        email__iexact=account.email,
+        defaults={"email": account.email, "name": account.name or account.email, "role": role},
     )
 
     changed_fields = []

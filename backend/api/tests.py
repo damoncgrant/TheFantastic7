@@ -126,6 +126,7 @@ class RecruiterDatabaseTests(TestCase):
         self.assertEqual(created_job.recruiter, self.recruiter)
         self.assertTrue(created_job.is_active)
 
+        self.client.force_login(self.applicant_account)
         deck = self.client.get(f"/api/jobs/deck/?candidate_id={self.candidate.id}")
         self.assertEqual(deck.status_code, 200)
         self.assertEqual(deck.json()["jobs"][0]["id"], created_job.id)

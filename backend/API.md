@@ -2,7 +2,7 @@
 
 This hackathon API accepts a profile ID in each request rather than production authentication. Create `UserProfile`, `Company`, and `Job` rows through Django admin or the Django shell before using the decks.
 
-For local development, run `python manage.py seed_demo` after `python manage.py migrate` to create a candidate and sample jobs. It prints the candidate ID; put that value in `frontend/.env.local` as `VITE_CANDIDATE_ID` (the first run uses `1`).
+For local development, run `python manage.py seed_demo` after `python manage.py migrate` to create a candidate and sample jobs. Login responses now include `candidateId`, linking the applicant's login email to their matching `UserProfile` (creating it when needed). The frontend uses that ID for applications and swiping. To use the seeded candidate's applications, create an applicant login with `candidate@jobbler.demo`.
 
 Candidate flow:
 
@@ -20,3 +20,34 @@ Messaging is guarded by a successful match:
 - `POST /api/applications/<application_id>/messages/send/` with `{"user_id": 1, "body": "Hello"}`
 
 Both endpoints return `403` until the recruiter has selected an applicant, and also reject non-participants.
+
+## Applicant notifications
+
+Notifications use the authenticated Django session. Only applicants can access
+their own notifications; recipient IDs and browser-local profile emails are not
+accepted as authorization.
+
+- `GET /api/notifications/` returns newest-first `notifications` and `unreadCount`.
+- `POST /api/notifications/<id>/read/` marks one notification as read.
+- `POST /api/notifications/read-all/` marks the applicant's notifications as read.
+
+POST requests require the CSRF cookie and `X-CSRFToken` header, obtained through
+`GET /api/auth/csrf/`. Read state is stored in the database. The applicant's
+`/#notifications` tab and navigation badge refresh every 15 seconds.
+
+Changing `Application.stage` for an applied application creates a status
+notification through a SQLite trigger (migration `0005`). This includes ORM
+saves, bulk updates, and committed SQL changes in external database tools.
+Repeated writes of the same stage do not create duplicates, and rolling back
+the change also rolls back its notification. Future SQLite migrations that
+rebuild `api_application` must reinstall this trigger.
+
+Creating a `Message` from that job's recruiter through `save()`/`objects.create()`
+creates a message notification in the same transaction; bulk message inserts
+bypass that hook. Edits and applicant replies do not create alerts.
+Notifications cover new events after installation, without backfilling history.
+
+Signed-in applicant requests resolve their candidate from the login session,
+creating the matching profile if needed; missing or stale client candidate IDs
+are ignored. ID-based matching requests remain available to standalone clients
+without a login session.

@@ -154,10 +154,20 @@ def set_default_resume(request, resume_id):
 
 def get_user(user_id, role=None):
     try:
-        user = get_object_or_404(UserProfile, pk=user_id)
+        user = UserProfile.objects.filter(pk=user_id).first()
     except (TypeError, ValueError):
         return None
-    return user if not role or user.role == role else None
+    return user if user and (not role or user.role == role) else None
+
+
+def request_candidate(request, legacy_candidate_id=None):
+    if request.user.is_authenticated:
+        if request.user.role != "applicant":
+            return None
+        profile = ensure_user_profile(request.user)
+        return profile if profile.role == UserProfile.Role.CANDIDATE else None
+    # Keep the existing ID-based interface for standalone hackathon clients.
+    return get_user(legacy_candidate_id, UserProfile.Role.CANDIDATE)
 
 
 def serialize_job(job, application=None):
@@ -223,7 +233,7 @@ def serialize_recruiter_candidate(application):
 
 @require_GET
 def candidate_job_deck(request):
-    candidate = get_user(request.GET.get("candidate_id"), UserProfile.Role.CANDIDATE)
+    candidate = request_candidate(request, request.GET.get("candidate_id"))
     if candidate is None:
         return error("candidate_id must belong to a candidate", 403)
     applications = {item.job_id: item for item in Application.objects.filter(candidate=candidate)}
@@ -244,7 +254,7 @@ def candidate_swipe(request, job_id):
     data = request_json(request)
     if data is None:
         return error("Body must be valid JSON")
-    candidate = get_user(data.get("candidate_id"), UserProfile.Role.CANDIDATE)
+    candidate = request_candidate(request, data.get("candidate_id"))
     if candidate is None:
         return error("candidate_id must belong to a candidate", 403)
     if data.get("decision") not in {"right", "left"}:
@@ -397,7 +407,7 @@ def recruiter_swipe(request, application_id):
 
 @require_GET
 def candidate_applications(request):
-    candidate = get_user(request.GET.get("candidate_id"), UserProfile.Role.CANDIDATE)
+    candidate = request_candidate(request, request.GET.get("candidate_id"))
     if candidate is None:
         return error("candidate_id must belong to a candidate", 403)
     applications = Application.objects.filter(

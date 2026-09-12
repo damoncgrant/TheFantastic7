@@ -26,4 +26,5 @@ class RecruiterAuthenticationTests(TestCase):
         self.assertEqual(response.json()["role"], user_model.Role.EMPLOYER)
         profile = UserProfile.objects.get(email="recruiter@example.com")
         self.assertEqual(response.json()["profile_id"], profile.id)
+        self.assertIsNone(response.json()["candidateId"])
         self.assertEqual(profile.role, UserProfile.Role.RECRUITER)
