@@ -44,7 +44,54 @@ http://127.0.0.1:8000/api/hello/ to see the JSON directly:
 If the page cannot reach Django, check that the backend is running on port 8000
 and refresh the page.
 
-## Where to start
+## Resume image preview
+
+Open the **Resume** navigation tab (or http://localhost:5173/#resume), click
+**Import .tex file**, and select `frontend/src/resume_builder/template.tex`.
+Django immediately compiles the LaTeX to PDF, converts its first page to a PNG,
+and displays it above the options with a download link.
+The builder option is a placeholder for the next step; **Skip for now** returns home.
+
+The upload accepts one self-contained `.tex` file up to 1 MB. Files compile with
+pdfLaTeX; custom files requiring XeLaTeX, LuaLaTeX, extra images, or private `.sty`
+files are not supported in this first version. Files and generated previews are temporary and
+aren't saved to the database. Downloads should be saved before leaving the tab.
+
+### LaTeX setup (one time per developer)
+
+Django needs `pdflatex` in addition to the Python requirements. You can use an
+existing TeX Live/MacTeX/MiKTeX installation on your PATH, or set `PDFLATEX_PATH`
+to the full executable path before starting Django.
+
+For a project-local macOS install, run these commands from the repository root:
+
+```sh
+mkdir -p backend/.tools/TinyTeX
+curl -fL https://github.com/rstudio/tinytex-releases/releases/download/v2026.09/TinyTeX-1-darwin-v2026.09.tar.xz -o /tmp/tinytex-resume.tar.xz
+tar -xf /tmp/tinytex-resume.tar.xz -C backend/.tools/TinyTeX --strip-components=1
+"$PWD/backend/.tools/TinyTeX/bin/universal-darwin/tlmgr" install preprint titlesec marvosym enumitem fancyhdr babel-english
+```
+
+Django automatically finds this project-local installation; `.tools/` is ignored
+by Git. For Windows/Linux installation, see the [TinyTeX instructions](https://yihui.org/tinytex/faq/).
+Install the same additional packages with `tlmgr install preprint titlesec marvosym enumitem fancyhdr babel-english`.
+Restart Django after installing a compiler or changing its PATH.
+
+The API uses `GET /api/csrf/` followed by a multipart `POST /api/resumes/render/`
+with field `file` and the `X-CSRFToken` header. Success returns `image/png`;
+errors return JSON with `error` and optional compiler `details`. Each compilation
+uses a temporary folder and two passes with a 20-second timeout each, with shell
+execution disabled. This local hackathon implementation is not an isolated
+compilation service for public uploads.
+
+### Resume files
+
+- `frontend/src/resume_builder/ResumePage.jsx`: entry options, upload, and preview.
+- `frontend/src/resume_builder/template.tex`: original Jake's template, unchanged.
+- `backend/api/latex.py`: compilation and temporary-file cleanup.
+- `backend/api/tests.py`: upload, CSRF, error handling, and actual template checks.
+
+## Application files
 
 - `frontend/src/App.jsx`: React page and API request.
 - `frontend/vite.config.js`: development API proxy.
@@ -61,6 +108,7 @@ you add models; then run `python manage.py makemigrations` and
 ```sh
 # From backend/, with the virtual environment active:
 python manage.py check
+python manage.py test
 
 # From frontend/:
 npm run build

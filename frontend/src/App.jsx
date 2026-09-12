@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import JobSwiper from './UserJobswiper';
 import ProfilePage from './ProfilePage';
 import { getInitials, loadProfile } from './profile';
+import ResumeBuilderPage from './resume_builder/ResumePage.jsx';
 
 // For this hackathon API, the active profile is provided explicitly.
 // Set VITE_CANDIDATE_ID in frontend/.env.local to a UserProfile primary key.
@@ -257,7 +258,7 @@ function SavedJobsPage() {
 const pages = {
   overview: OverviewPage,
   applications: ApplicationsPage,
-  resume: ResumePage,
+  resume: ResumeBuilderPage,
   saved: SavedJobsPage,
   swipe: JobSwiper,
   profile: ProfilePage,
@@ -310,7 +311,7 @@ export default function App() {
         </a>
       </aside>
 
-      <main className="dashboard" key={activePage}>
+      <main className={`dashboard${activePage === 'resume' ? ' resume-dashboard' : ''}`} key={activePage}>
         <ActivePage profile={profile} onSave={setProfile} candidateId={candidateId} />
       </main>
     </div>

@@ -10,4 +10,7 @@ urlpatterns = [
     path("applications/<int:application_id>/swipe/", views.recruiter_swipe, name="recruiter-swipe"),
     path("applications/<int:application_id>/messages/", views.messages, name="messages"),
     path("applications/<int:application_id>/messages/send/", views.send_message, name="send-message"),
+    path("csrf/", views.csrf_token, name="csrf"),
+    path("resumes/render/", views.render_resume, name="render-resume"),
+    path("resumes/build/", views.build_resume, name="build-resume"),
 ]

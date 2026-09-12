@@ -897,3 +897,70 @@ h2 {
     animation: none;
   }
 }
+
+/* Resume-builder styles, scoped so the dashboard design remains unchanged. */
+.resume-dashboard {
+  width: 100%;
+  height: 100vh;
+  margin: 0;
+  padding: clamp(12px, 3vh, 24px);
+}
+
+.resume-page {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  height: 100%;
+  min-height: 0;
+  overflow: auto;
+}
+
+.resume-page h1,
+.resume-page h2,
+.resume-page h3,
+.resume-page p { margin: 0; }
+
+.resume-page button {
+  padding: 10px 16px;
+  border: 1px solid #244baf;
+  border-radius: 6px;
+  color: white;
+  background: #244baf;
+  cursor: pointer;
+}
+
+.resume-page button:disabled { opacity: .5; cursor: default; }
+.resume-page .secondary { color: #244baf; background: white; }
+.resume-page > :not(.preview) { flex-shrink: 0; }
+.resume-page .preview { display: flex; flex: 1; flex-direction: column; min-height: 140px; gap: 8px; }
+.resume-preview-image { flex: 1; min-height: 0; width: 100%; object-fit: contain; object-position: top center; border: 1px solid #ccc; background: #e5e5e5; }
+.resume-page .error { min-height: 0; max-height: 35vh; padding: 16px; overflow: auto; color: #8b2020; background: #fff0f0; border-radius: 6px; }
+.resume-options { display: grid; grid-template-columns: 1fr; gap: 16px; margin-top: auto; }
+.resume-page .option { padding: 14px 18px; border: 1px solid #ddd; border-radius: 8px; background: white; }
+.resume-page .option > * + * { margin-top: 8px; }
+.resume-page .option a, .preview-heading a { color: #244baf; }
+.visually-hidden { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
+.preview-heading, .builder-heading, .resume-page .section-heading { display: flex; align-items: start; justify-content: space-between; gap: 16px; }
+
+.resume-page.has-preview .resume-options { gap: 8px; }
+.resume-page.has-preview .option { display: grid; grid-template-columns: minmax(0, 1fr) auto; column-gap: 16px; padding: 6px 12px; }
+.resume-page.has-preview .option h2, .resume-page.has-preview .option p { grid-column: 1; }
+.resume-page.has-preview .option > button, .resume-page.has-preview .option > a { grid-column: 2; grid-row: 1 / 3; align-self: center; padding: 6px 10px; font-size: .85rem; }
+
+.builder { display: flex; flex: 1; flex-direction: column; min-height: 0; gap: 12px; padding: 16px; border: 1px solid #ddd; border-radius: 8px; background: white; }
+.builder-scroll { display: grid; min-height: 0; gap: 16px; padding-right: 4px; overflow: auto; }
+.builder-section { display: grid; gap: 10px; }
+.field-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px 16px; }
+.field { display: grid; gap: 4px; font-size: .9rem; font-weight: 600; }
+.field input, .field textarea { width: 100%; padding: 8px; border: 1px solid #aaa; border-radius: 4px; font: inherit; font-weight: 400; }
+.field textarea { resize: vertical; }
+.resume-entry { display: grid; position: relative; gap: 10px; padding: 12px; border: 1px solid #ddd; border-radius: 6px; }
+.entry-title { font-weight: 600; line-height: 1.35; }
+.resume-page .remove-button { justify-self: end; padding: 5px 8px; color: #8b2020; border-color: #8b2020; background: white; }
+.resume-page .small-button { padding: 5px 8px; }
+.render-button { align-self: end; }
+
+@media (max-width: 760px) {
+  .resume-dashboard { height: auto; min-height: 100vh; }
+  .field-grid { grid-template-columns: 1fr; }
+}
