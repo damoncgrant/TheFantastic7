@@ -6,8 +6,7 @@ from django.db import migrations
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('api', '0004_merge_duplicate_0003_migrations'),
-        ('api', '0006_merge_profile_and_recruiter'),
+        ('api', '0005_application_status_trigger'),
     ]
 
     operations = [
