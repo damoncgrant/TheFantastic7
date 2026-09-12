@@ -1001,3 +1001,105 @@ h2 {
   .resume-card-main { gap: 14px; flex-direction: column; }
   .field-grid { grid-template-columns: 1fr; }
 }
+
+/* Login / signup screen (AuthPage) */
+.auth-shell {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  padding: 24px;
+}
+
+.auth-card {
+  width: min(420px, 100%);
+  margin-top: 0;
+}
+
+.auth-form {
+  display: grid;
+  gap: 16px;
+  margin-top: 24px;
+}
+
+.auth-form label {
+  display: grid;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 0.86rem;
+}
+
+.auth-form input {
+  padding: 11px 14px;
+  border: 1px solid #eadfe2;
+  border-radius: 10px;
+  color: var(--ink);
+  font: inherit;
+  background: var(--white);
+}
+
+.auth-form input:focus-visible {
+  outline: none;
+  border-color: var(--cream);
+}
+
+.auth-form .primary-button {
+  width: 100%;
+  margin-top: 4px;
+}
+
+.role-fieldset {
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.role-fieldset legend {
+  margin-bottom: 8px;
+  padding: 0;
+  color: var(--muted);
+  font-size: 0.86rem;
+}
+
+.role-options {
+  display: flex;
+  gap: 10px;
+}
+
+.role-option {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  border: 1px solid #eadfe2;
+  border-radius: 10px;
+  font-size: 0.86rem;
+}
+
+.role-option:has(input:checked) {
+  border-color: var(--cream);
+  color: var(--cream);
+  background: #fff5f7;
+}
+
+.form-error {
+  margin: 0;
+  color: var(--coffee);
+  font-size: 0.84rem;
+}
+
+.link-button {
+  margin-top: 18px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--cream);
+  font-size: 0.86rem;
+  font-weight: 700;
+}
+
+.link-button:hover,
+.link-button:focus-visible {
+  text-decoration: underline;
+}
