@@ -78,10 +78,17 @@ class Application(models.Model):
         SELECTED = "selected", "Selected"
         REJECTED = "rejected", "Rejected"
 
+    class Stage(models.TextChoices):
+        APPLIED = "applied", "Applied"
+        INTERVIEW = "interview", "Interview"
+        OFFER = "offer", "Offer"
+        REJECTED = "rejected", "Rejected"
+
     job = models.ForeignKey(Job, on_delete=models.CASCADE, related_name="applications")
     candidate = models.ForeignKey(UserProfile, on_delete=models.CASCADE, related_name="applications")
     candidate_decision = models.CharField(max_length=10, choices=CandidateDecision.choices)
     recruiter_decision = models.CharField(max_length=10, choices=RecruiterDecision.choices, default=RecruiterDecision.PENDING)
+    stage = models.CharField(max_length=10, choices=Stage.choices, default=Stage.APPLIED)
     applied_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
