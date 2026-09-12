@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import JobSwiper from './UserJobswiper';
+import DMPage from './DMPage.jsx';
 
 // For this hackathon API, the active profile is provided explicitly.
 // Set VITE_CANDIDATE_ID in frontend/.env.local to a UserProfile primary key.
@@ -29,6 +30,7 @@ const savedJobs = [
 const navigation = [
   { id: 'overview', label: 'Overview' },
   { id: 'applications', label: 'Applications' },
+  { id: 'messages', label: 'DMs'},
   { id: 'resume', label: 'Resume' },
   { id: 'saved', label: 'Saved jobs' },
 ];
@@ -240,6 +242,7 @@ const pages = {
   resume: <ResumePage />,
   saved: <SavedJobsPage />,
   swipe: <JobSwiper candidateId={candidateId} />,
+  messages: <DMPage />,
 };
 
 function getPageFromHash() {
