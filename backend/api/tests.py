@@ -8,8 +8,15 @@ from .models import Application, Company, Job, UserProfile
 
 class MatchingFlowTests(TestCase):
     def setUp(self):
+        user_model = get_user_model()
         self.candidate = UserProfile.objects.create(name="Ava", email="ava@example.com", role="candidate")
         self.recruiter = UserProfile.objects.create(name="Riley", email="riley@example.com", role="recruiter")
+        self.recruiter_account = user_model.objects.create_user(
+            email=self.recruiter.email,
+            password="test-password",
+            name=self.recruiter.name,
+            role=user_model.Role.EMPLOYER,
+        )
         company = Company.objects.create(name="Northstar", logo_url="https://example.com/logo.png")
         self.job = Job.objects.create(company=company, recruiter=self.recruiter, title="Backend Developer", description="Build APIs", location="Edmonton, AB", compensation="$80k", requirements=["Python"])
 
@@ -24,10 +31,11 @@ class MatchingFlowTests(TestCase):
         deck = self.client.get(f"/api/recruiter/jobs/{self.job.id}/candidates/?recruiter_id={self.recruiter.id}")
         self.assertEqual(deck.json()["candidates"][0]["application_id"], application_id)
 
-        selected = self.post(f"/api/applications/{application_id}/swipe/", {"recruiter_id": self.recruiter.id, "decision": "right"})
+        self.client.force_login(self.recruiter_account)
+        selected = self.post(f"/api/applications/{application_id}/swipe/", {"decision": "right"})
         self.assertTrue(selected.json()["messaging_unlocked"])
         applications = self.client.get(f"/api/applications/?candidate_id={self.candidate.id}")
-        self.assertEqual(applications.json()["applications"][0]["stage"], "interview")
+        self.assertEqual(applications.json()["applications"][0]["stage"], "offer")
         message = self.post(f"/api/applications/{application_id}/messages/send/", {"user_id": self.candidate.id, "body": "Thanks!"})
         self.assertEqual(message.status_code, 201)
 
@@ -83,7 +91,7 @@ class RecruiterDatabaseTests(TestCase):
             compensation="$80k",
             requirements=["React"],
         )
-        Application.objects.create(
+        self.application = Application.objects.create(
             job=self.existing_job,
             candidate=self.candidate,
             candidate_decision=Application.CandidateDecision.APPLIED,
@@ -104,6 +112,7 @@ class RecruiterDatabaseTests(TestCase):
             "open_positions": 1,
             "new_applicants": 1,
             "interviews": 1,
+            "offers": 0,
         })
         self.assertEqual(payload["jobs"][0]["title"], "Frontend Developer")
         self.assertEqual(payload["candidates"][0]["name"], "Ava Applicant")
@@ -150,3 +159,34 @@ class RecruiterDatabaseTests(TestCase):
         response = self.client.get("/api/recruiter/dashboard/")
 
         self.assertEqual(response.status_code, 401)
+
+    def test_right_swipe_creates_offer_visible_to_applicant(self):
+        self.client.force_login(self.recruiter_account)
+
+        response = self.post_json(
+            f"/api/applications/{self.application.id}/swipe/",
+            {"decision": "right"},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["stage"], Application.Stage.OFFER)
+        self.application.refresh_from_db()
+        self.assertEqual(self.application.stage, Application.Stage.OFFER)
+        self.assertEqual(
+            self.application.recruiter_decision,
+            Application.RecruiterDecision.SELECTED,
+        )
+
+        applicant_view = self.client.get(f"/api/applications/?candidate_id={self.candidate.id}")
+        self.assertEqual(applicant_view.status_code, 200)
+        self.assertEqual(applicant_view.json()["applications"][0]["stage"], "offer")
+
+    def test_recruiter_swipe_requires_login(self):
+        response = self.post_json(
+            f"/api/applications/{self.application.id}/swipe/",
+            {"decision": "right"},
+        )
+
+        self.assertEqual(response.status_code, 401)
+        self.application.refresh_from_db()
+        self.assertEqual(self.application.stage, Application.Stage.INTERVIEW)
