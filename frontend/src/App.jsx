@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import JobSwiper from './UserJobswiper';
 import ProfilePage from './ProfilePage';
 import { getInitials, loadProfile } from './profile';
+import ResumeBuilderPage from './resume_builder/ResumePage.jsx';
 
 // For this hackathon API, the active profile is provided explicitly.
 // Set VITE_CANDIDATE_ID in frontend/.env.local to a UserProfile primary key.
@@ -20,17 +21,17 @@ const applicationStats = [
 ];
 
 const applications = [
-  { company: 'Northstar Labs', role: 'Frontend Developer', date: 'Sep 10', status: 'Interview' },
-  { company: 'Cedar Systems', role: 'Software Developer', date: 'Sep 8', status: 'Applied' },
-  { company: 'Prairie Digital', role: 'UX Engineer', date: 'Sep 5', status: 'Applied' },
-  { company: 'Aurora Health', role: 'Product Designer', date: 'Aug 29', status: 'Offer' },
+  { company: 'Northstar Labs', role: 'Frontend Developer', date: 'Sep 10', status: 'Interview', profile: '/company-profiles/northstar-contact.png' },
+  { company: 'Cedar Systems', role: 'Software Developer', date: 'Sep 8', status: 'Applied', profile: '/company-profiles/cedar-contact.png' },
+  { company: 'Prairie Digital', role: 'UX Engineer', date: 'Sep 5', status: 'Applied', profile: '/company-profiles/prairie-contact.png' },
+  { company: 'Aurora Health', role: 'Product Designer', date: 'Aug 29', status: 'Offer', profile: '/company-profiles/aurora-contact.png' },
   { company: 'Summit AI', role: 'Junior Developer', date: 'Aug 24', status: 'Rejected' },
 ];
 
 const savedJobs = [
-  { company: 'Evergreen Tech', role: 'Full Stack Developer', location: 'Edmonton, AB', type: 'Full time' },
-  { company: 'Riverbend Studio', role: 'Frontend Engineer', location: 'Remote', type: 'Full time' },
-  { company: 'Atlas Analytics', role: 'Product Developer', location: 'Calgary, AB', type: 'Hybrid' },
+  { company: 'Evergreen Tech', role: 'Full Stack Developer', location: 'Edmonton, AB', type: 'Full time', profile: '/company-profiles/northstar-contact.png' },
+  { company: 'Riverbend Studio', role: 'Frontend Engineer', location: 'Remote', type: 'Full time', profile: '/company-profiles/cedar-contact.png' },
+  { company: 'Atlas Analytics', role: 'Product Developer', location: 'Calgary, AB', type: 'Hybrid', profile: '/company-profiles/prairie-contact.png' },
 ];
 
 const navigation = [
@@ -54,16 +55,26 @@ function PageHeader({ eyebrow, title, description, action }) {
 }
 
 function ApplicationRow({ application }) {
+  const statusClass = application.status.toLowerCase();
+
   return (
-    <article className="application-row">
-      <span className="company-mark" aria-hidden="true">
-        {application.company.charAt(0)}
-      </span>
+    <article className={`application-row application-${statusClass}`}>
+      {application.profile ? (
+        <img
+          className="company-profile"
+          src={application.profile}
+          alt={`Company contact for ${application.company}`}
+        />
+      ) : (
+        <span className="company-mark" aria-hidden="true">
+          {application.company.charAt(0)}
+        </span>
+      )}
       <div className="application-details">
         <strong>{application.role}</strong>
         <span>{application.company}{application.date ? ` • ${application.date}` : ''}</span>
       </div>
-      <span className={`status ${application.status.toLowerCase()}`}>
+      <span className={`status ${statusClass}`}>
         {application.status}
       </span>
     </article>
@@ -86,8 +97,12 @@ function OverviewPage({ profile }) {
           <h2 id="swipe-heading">Find your next fit.</h2>
           <p>Review roles chosen around your skills and preferences.</p>
         </div>
-        <a className="primary-button button-link" href="#swipe">
-          Start swiping <span aria-hidden="true">→</span>
+        <a className="primary-button button-link swipe-button" href="#swipe">
+          <span className="swipe-button-copy">
+            <strong>Start swiping</strong>
+            <small>12 new jobs waiting</small>
+          </span>
+          <span className="swipe-button-icon" aria-hidden="true">→</span>
         </a>
       </section>
 
@@ -220,7 +235,11 @@ function SavedJobsPage() {
         {savedJobs.map((job) => (
           <article className="saved-card" key={`${job.company}-${job.role}`}>
             <div className="saved-card-top">
-              <span className="company-mark" aria-hidden="true">{job.company.charAt(0)}</span>
+              <img
+                className="company-profile saved-profile"
+                src={job.profile}
+                alt={`Company contact for ${job.company}`}
+              />
               <button className="bookmark-button" type="button" aria-label={`Remove ${job.role} from saved jobs`}>
                 Saved
               </button>
@@ -244,7 +263,7 @@ function SavedJobsPage() {
 const pages = {
   overview: OverviewPage,
   applications: ApplicationsPage,
-  resume: ResumePage,
+  resume: ResumeBuilderPage,
   saved: SavedJobsPage,
   swipe: JobSwiper,
   profile: ProfilePage,
@@ -297,7 +316,7 @@ export default function App({ user }) {
         </a>
       </aside>
 
-      <main className="dashboard" key={activePage}>
+      <main className={`dashboard${activePage === 'resume' ? ' resume-dashboard' : ''}`} key={activePage}>
         <ActivePage profile={profile} onSave={setProfile} candidateId={candidateId} accountEmail={user.email} />
       </main>
     </div>

@@ -1,12 +1,15 @@
 import json
 
 from django.db.models import Case, IntegerField, Value, When
-from django.http import JsonResponse
+from django.http import HttpResponse, JsonResponse
+from django.middleware.csrf import get_token
 from django.shortcuts import get_object_or_404
 from django.views.decorators.csrf import csrf_exempt
-from django.views.decorators.http import require_GET, require_http_methods
+from django.views.decorators.http import require_GET, require_http_methods, require_POST
 
+from .latex import LatexError, compile_png
 from .models import Application, Job, Message, UserProfile
+from .resume_builder import build_resume as build_latex_resume
 
 
 @require_GET
@@ -144,3 +147,48 @@ def send_message(request, application_id):
         return error("body cannot be empty")
     message = Message.objects.create(application=app, sender=user_or_response, body=text)
     return JsonResponse({"id": message.id, "sender_id": message.sender_id, "body": message.body, "created_at": message.created_at.isoformat()}, status=201)
+
+
+@require_GET
+def csrf_token(request):
+    return JsonResponse({"csrfToken": get_token(request)})
+
+
+@require_POST
+def render_resume(request):
+    upload = request.FILES.get("file")
+    if not upload or not upload.name.lower().endswith(".tex"):
+        return JsonResponse({"error": "Choose a .tex file to import."}, status=400)
+    if upload.size > 1024 * 1024:
+        return JsonResponse({"error": "Choose a .tex file smaller than 1 MB."}, status=400)
+    source = upload.read()
+    if not source.strip():
+        return JsonResponse({"error": "The uploaded file is empty."}, status=400)
+    try:
+        image = compile_png(source)
+    except LatexError as error:
+        return JsonResponse({"error": str(error), "details": error.details}, status=error.status)
+    response = HttpResponse(image, content_type="image/png")
+    response["Content-Disposition"] = 'inline; filename="resume.png"'
+    response["Cache-Control"] = "no-store"
+    return response
+
+
+@require_POST
+def build_resume(request):
+    try:
+        data = json.loads(request.body)
+        if not isinstance(data, dict):
+            raise ValueError
+    except (json.JSONDecodeError, ValueError):
+        return JsonResponse({"error": "Send resume details as JSON."}, status=400)
+    try:
+        image = compile_png(build_latex_resume(data))
+    except ValueError as error:
+        return JsonResponse({"error": str(error)}, status=400)
+    except LatexError as error:
+        return JsonResponse({"error": str(error), "details": error.details}, status=error.status)
+    response = HttpResponse(image, content_type="image/png")
+    response["Content-Disposition"] = 'inline; filename="resume.png"'
+    response["Cache-Control"] = "no-store"
+    return response
