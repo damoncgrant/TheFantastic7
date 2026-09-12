@@ -16,6 +16,7 @@ cd backend
 python3 -m venv .venv
 source .venv/bin/activate
 python3 -m pip install -r requirements.txt
+python3 manage.py migrate
 python3 manage.py runserver
 ```
 
@@ -99,9 +100,10 @@ compilation service for public uploads.
 - `backend/api/urls.py`: API routes.
 - `backend/config/settings.py`: Django settings.
 
-No database setup is needed for this endpoint. SQLite is configured for when
-you add models; then run `python manage.py makemigrations` and
-`python manage.py migrate` from `backend/` with the virtual environment active.
+Database migrations are committed with the project. For normal setup and after
+pulling schema changes, run `python manage.py migrate` from `backend/` with the
+virtual environment active. `makemigrations` is only needed when intentionally
+changing a Django model, and the resulting migration should be committed.
 
 ## Checks
 
