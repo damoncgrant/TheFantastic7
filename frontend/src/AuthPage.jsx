@@ -23,7 +23,7 @@ export default function AuthPage({ onAuthenticated }) {
       const user = isSignup
         ? await signup({ email, password, name, role })
         : await login({ email, password });
-      onAuthenticated(user);
+      onAuthenticated(user, { isNewAccount: isSignup });
     } catch (err) {
       setError(err.message);
     } finally {
