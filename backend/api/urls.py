@@ -12,6 +12,9 @@ urlpatterns = [
     path("applications/<int:application_id>/messages/", views.messages, name="messages"),
     path("applications/<int:application_id>/messages/send/", views.send_message, name="send-message"),
     path("csrf/", views.csrf_token, name="csrf"),
+    path("resumes/", views.resumes, name="resumes"),
+    path("resumes/<int:resume_id>/", views.resume_detail, name="resume-detail"),
+    path("resumes/<int:resume_id>/default/", views.set_default_resume, name="set-default-resume"),
     path("resumes/render/", views.render_resume, name="render-resume"),
     path("resumes/build/", views.build_resume, name="build-resume"),
 ]

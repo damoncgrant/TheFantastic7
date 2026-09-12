@@ -1,5 +1,6 @@
 import json
 
+from django.db import transaction
 from django.db.models import Case, IntegerField, Value, When
 from django.http import HttpResponse, JsonResponse
 from django.middleware.csrf import get_token
@@ -8,7 +9,7 @@ from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_GET, require_http_methods, require_POST
 
 from .latex import LatexError, compile_png
-from .models import Application, Job, Message, UserProfile
+from .models import Application, Job, Message, Resume, UserProfile
 from .resume_builder import build_resume as build_latex_resume
 
 
@@ -26,6 +27,118 @@ def request_json(request):
         return json.loads(request.body or "{}")
     except json.JSONDecodeError:
         return None
+
+
+def authenticated_user(request):
+    if request.user.is_authenticated:
+        return request.user
+    return None
+
+
+def serialize_resume(resume):
+    return {
+        "id": resume.id,
+        "name": resume.name,
+        "latex": resume.latex,
+        "builderData": resume.builder_data,
+        "isDefault": resume.is_default,
+        "createdAt": resume.created_at.isoformat(),
+        "updatedAt": resume.updated_at.isoformat(),
+    }
+
+
+def resume_payload(request):
+    data = request_json(request)
+    if not isinstance(data, dict):
+        return None, error("Resume data must be valid JSON.")
+    name = data.get("name")
+    latex = data.get("latex")
+    builder_data = data.get("builderData")
+    if not isinstance(name, str) or not name.strip():
+        return None, error("A resume name is required.")
+    if len(name.strip()) > 150:
+        return None, error("Resume names must be 150 characters or fewer.")
+    if latex is None and isinstance(builder_data, dict):
+        try:
+            latex = build_latex_resume(builder_data).decode("utf-8")
+        except ValueError as exc:
+            return None, error(str(exc))
+    if not isinstance(latex, str) or not latex.strip():
+        return None, error("LaTeX source is required.")
+    if len(latex.encode("utf-8")) > 1024 * 1024:
+        return None, error("LaTeX source must be smaller than 1 MB.")
+    if builder_data is not None and not isinstance(builder_data, dict):
+        return None, error("Builder data must be an object.")
+    return {
+        "name": name.strip(),
+        "latex": latex,
+        "builder_data": builder_data,
+        "is_default": data.get("isDefault") is True,
+    }, None
+
+
+@require_http_methods(["GET", "POST"])
+def resumes(request):
+    user = authenticated_user(request)
+    if user is None:
+        return error("Sign in to manage resumes.", 401)
+    if request.method == "GET":
+        return JsonResponse({"resumes": [serialize_resume(resume) for resume in Resume.objects.filter(user=user)]})
+
+    payload, response = resume_payload(request)
+    if response:
+        return response
+    with transaction.atomic():
+        has_resumes = Resume.objects.filter(user=user).exists()
+        make_default = payload["is_default"] or not has_resumes
+        if make_default:
+            Resume.objects.filter(user=user, is_default=True).update(is_default=False)
+        payload["is_default"] = make_default
+        resume = Resume.objects.create(user=user, **payload)
+    return JsonResponse({"resume": serialize_resume(resume)}, status=201)
+
+
+@require_http_methods(["GET", "PATCH", "DELETE"])
+def resume_detail(request, resume_id):
+    user = authenticated_user(request)
+    if user is None:
+        return error("Sign in to manage resumes.", 401)
+    resume = get_object_or_404(Resume, pk=resume_id, user=user)
+    if request.method == "GET":
+        return JsonResponse({"resume": serialize_resume(resume)})
+    if request.method == "DELETE":
+        with transaction.atomic():
+            was_default = resume.is_default
+            resume.delete()
+            if was_default:
+                replacement = Resume.objects.filter(user=user).first()
+                if replacement:
+                    replacement.is_default = True
+                    replacement.save(update_fields=["is_default", "updated_at"])
+        return JsonResponse({}, status=204)
+
+    payload, response = resume_payload(request)
+    if response:
+        return response
+    resume.name = payload["name"]
+    resume.latex = payload["latex"]
+    resume.builder_data = payload["builder_data"]
+    resume.save()
+    return JsonResponse({"resume": serialize_resume(resume)})
+
+
+@require_POST
+def set_default_resume(request, resume_id):
+    user = authenticated_user(request)
+    if user is None:
+        return error("Sign in to manage resumes.", 401)
+    with transaction.atomic():
+        resume = get_object_or_404(Resume, pk=resume_id, user=user)
+        Resume.objects.filter(user=user, is_default=True).exclude(pk=resume.pk).update(is_default=False)
+        if not resume.is_default:
+            resume.is_default = True
+            resume.save(update_fields=["is_default", "updated_at"])
+    return JsonResponse({"resume": serialize_resume(resume)})
 
 
 def get_user(user_id, role=None):
