@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useState } from 'react';
-import { createRecruiterJob, fetchRecruiterDashboard } from './api.js';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { createRecruiterJob, fetchRecruiterDashboard, reviewCandidateApplication } from './api.js';
 
 const recruiterNavigation = [
   { id: 'recruiter-overview', label: 'Overview' },
@@ -36,29 +36,126 @@ function JobRow({ job }) {
   );
 }
 
-function CandidateCard({ candidate }) {
-  const initials = candidate.name
+function candidateInitials(candidate) {
+  return candidate.name
     .split(/\s+/)
     .map((part) => part[0])
     .join('')
     .slice(0, 2)
     .toUpperCase();
+}
+
+function RecruiterCandidateSwiper({ candidates, onCandidateReviewed }) {
+  const [queue, setQueue] = useState(candidates);
+  const [dragX, setDragX] = useState(0);
+  const [exiting, setExiting] = useState(null);
+  const [error, setError] = useState('');
+  const dragging = useRef(false);
+  const startX = useRef(0);
+  const current = queue[0];
+
+  useEffect(() => setQueue(candidates), [candidates]);
+
+  const commitSwipe = useCallback(async (direction) => {
+    if (!current || exiting) return;
+    setError('');
+    setExiting(direction);
+    try {
+      await reviewCandidateApplication(current.application_id, direction);
+      await new Promise((resolve) => window.setTimeout(resolve, 220));
+      setQueue((items) => items.slice(1));
+      setDragX(0);
+      setExiting(null);
+      await onCandidateReviewed();
+    } catch (reviewError) {
+      setDragX(0);
+      setExiting(null);
+      setError(reviewError.message || 'Could not update this application.');
+    }
+  }, [current, exiting, onCandidateReviewed]);
+
+  if (!current) {
+    return (
+      <section className="recruiter-swipe-empty">
+        <span aria-hidden="true">✓</span>
+        <h2>Candidate queue complete</h2>
+        <p>New applicants will appear here when they apply to one of your jobs.</p>
+      </section>
+    );
+  }
+
+  const initials = candidateInitials(current);
+  const cardTransform = exiting
+    ? `translateX(${exiting === 'right' ? '125%' : '-125%'}) rotate(${exiting === 'right' ? '12deg' : '-12deg'})`
+    : `translateX(${dragX}px) rotate(${dragX / 28}deg)`;
+
+  function beginDrag(event) {
+    dragging.current = true;
+    startX.current = event.clientX;
+    event.currentTarget.setPointerCapture?.(event.pointerId);
+  }
+
+  function moveDrag(event) {
+    if (dragging.current && !exiting) setDragX(event.clientX - startX.current);
+  }
+
+  function endDrag() {
+    if (!dragging.current) return;
+    dragging.current = false;
+    if (dragX > 90) commitSwipe('right');
+    else if (dragX < -90) commitSwipe('left');
+    else setDragX(0);
+  }
 
   return (
-    <article className="recruiter-candidate-card">
-      <span className="candidate-avatar" aria-hidden="true">{initials}</span>
-      <div>
-        <strong>{candidate.name}</strong>
-        <span>{candidate.headline || 'Candidate'} · {candidate.job_title}</span>
+    <section className="recruiter-swipe-screen" aria-label="Candidate review">
+      <div className="recruiter-swipe-progress">
+        <span>{queue.length} awaiting review</span>
+        <span>Drag or use the buttons</span>
       </div>
-      <span className="candidate-stage">{candidate.stage_label}</span>
-      {candidate.skills?.length > 0 && (
-        <div className="candidate-skills" aria-label="Candidate skills">
-          {candidate.skills.slice(0, 3).map((skill) => <span key={skill}>{skill}</span>)}
+
+      <article
+        className={`recruiter-swipe-card${exiting ? ' is-exiting' : ''}`}
+        style={{ transform: cardTransform }}
+        onPointerDown={beginDrag}
+        onPointerMove={moveDrag}
+        onPointerUp={endDrag}
+        onPointerCancel={endDrag}
+      >
+        <div className="recruiter-swipe-portrait">
+          <span className="recruiter-swipe-label">Candidate profile</span>
+          <span className="recruiter-swipe-avatar" aria-hidden="true">{initials}</span>
+          {Math.abs(dragX) > 55 && (
+            <span className={`recruiter-swipe-stamp ${dragX > 0 ? 'offer' : 'reject'}`}>
+              {dragX > 0 ? 'Offer' : 'Reject'}
+            </span>
+          )}
         </div>
-      )}
-      <button className="secondary-button compact-button" type="button">Review</button>
-    </article>
+        <div className="recruiter-swipe-details">
+          <div>
+            <h2>{current.name}</h2>
+            <p>{current.headline || 'Candidate'}</p>
+          </div>
+          <p className="recruiter-applied-role">Applied for <strong>{current.job_title}</strong> at {current.company_name}</p>
+          {current.bio && <p className="recruiter-candidate-bio">{current.bio}</p>}
+          {current.skills?.length > 0 && (
+            <div className="recruiter-swipe-skills" aria-label="Candidate skills">
+              {current.skills.slice(0, 5).map((skill) => <span key={skill}>{skill}</span>)}
+            </div>
+          )}
+        </div>
+      </article>
+
+      <div className="recruiter-swipe-actions">
+        <button className="recruiter-reject-button" type="button" onClick={() => commitSwipe('left')} disabled={Boolean(exiting)}>
+          <span aria-hidden="true">×</span> Reject
+        </button>
+        <button className="recruiter-offer-button" type="button" onClick={() => commitSwipe('right')} disabled={Boolean(exiting)}>
+          Make offer <span aria-hidden="true">✓</span>
+        </button>
+      </div>
+      {error && <p className="recruiter-form-error recruiter-swipe-error" role="alert">{error}</p>}
+    </section>
   );
 }
 
@@ -70,7 +167,7 @@ function DataState({ loading, error, empty, children }) {
 }
 
 function RecruiterOverview({ name, data, loading, error }) {
-  const stats = data?.stats ?? { open_positions: 0, new_applicants: 0, interviews: 0 };
+  const stats = data?.stats ?? { open_positions: 0, new_applicants: 0, offers: 0 };
   const jobs = data?.jobs ?? [];
   const activeJobs = jobs.filter((job) => job.is_active);
 
@@ -99,7 +196,7 @@ function RecruiterOverview({ name, data, loading, error }) {
       <section className="stats-grid" aria-label="Recruiting summary">
         <article className="stat-card"><span>Open positions</span><strong>{stats.open_positions}</strong></article>
         <article className="stat-card"><span>New applicants</span><strong>{stats.new_applicants}</strong></article>
-        <article className="stat-card"><span>Interviews</span><strong>{stats.interviews}</strong></article>
+        <article className="stat-card"><span>Offers</span><strong>{stats.offers}</strong></article>
       </section>
 
       <section className="content-panel recruiter-section" aria-labelledby="active-jobs-heading">
@@ -141,21 +238,17 @@ function RecruiterJobs({ data, loading, error }) {
   );
 }
 
-function RecruiterCandidates({ data, loading, error }) {
-  const candidates = data?.candidates ?? [];
+function RecruiterCandidates({ data, loading, error, onCandidateReviewed }) {
+  const candidates = (data?.candidates ?? []).filter((candidate) => candidate.recruiter_decision === 'pending');
   return (
     <>
       <RecruiterHeader
         eyebrow="Discover talent"
         title="Candidates"
-        description="Review applicants across your job postings."
+        description="Swipe right to make an offer, or left to reject an application."
       />
       <DataState loading={loading} error={error} empty={!candidates.length}>
-        <section className="recruiter-candidate-grid" aria-label="Candidates">
-          {candidates.map((candidate) => (
-            <CandidateCard candidate={candidate} key={candidate.application_id} />
-          ))}
-        </section>
+        <RecruiterCandidateSwiper candidates={candidates} onCandidateReviewed={onCandidateReviewed} />
       </DataState>
     </>
   );
@@ -308,7 +401,14 @@ export default function RecruiterApp({ user, onLogout }) {
           <span><strong>Recruiter Workspace</strong><small>Hiring and candidate management</small></span>
           <span className="recruiter-mode-pill">Recruiter mode</span>
         </div>
-        <ActivePage name={displayName} data={data} loading={loading} error={error} onJobCreated={loadDashboard} />
+        <ActivePage
+          name={displayName}
+          data={data}
+          loading={loading}
+          error={error}
+          onJobCreated={loadDashboard}
+          onCandidateReviewed={loadDashboard}
+        />
       </main>
     </div>
   );

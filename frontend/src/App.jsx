@@ -5,6 +5,7 @@ import ProfilePage from './ProfilePage';
 import { getInitials, loadProfile } from './profile';
 import ResumeBuilderPage from './resume_builder/ResumePage.jsx';
 import { fetchApplications } from './applications';
+import NotificationsPage, { useNotifications } from './NotificationsPage';
 
 const roleLabels = {
   applicant: 'Applicant',
@@ -21,6 +22,7 @@ const navigation = [
   { id: 'overview', label: 'Overview' },
   { id: 'applications', label: 'Applications' },
   { id: 'messages', label: 'Messages'},
+  { id: 'notifications', label: 'Notifications', applicantOnly: true },
   { id: 'resume', label: 'Resume' },
   { id: 'saved', label: 'Saved jobs' },
 ];
@@ -295,6 +297,7 @@ const pages = {
   saved: SavedJobsPage,
   swipe: JobSwiper,
   profile: ProfilePage,
+  notifications: NotificationsPage,
 };
 
 function getPageFromHash() {
@@ -303,11 +306,13 @@ function getPageFromHash() {
 }
 
 export default function App({ user, onLogout }) {
+  const candidateId = user.profile_id ?? user.candidateId;
   const [activePage, setActivePage] = useState(getPageFromHash);
   const [profile, setProfile] = useState(() => loadProfile(user.email, user.name));
   const [applications, setApplications] = useState([]);
   const [applicationsLoading, setApplicationsLoading] = useState(true);
-  const ActivePage = pages[activePage];
+  const notifications = useNotifications(user.role === 'applicant', user.email);
+  const ActivePage = activePage === 'notifications' && user.role !== 'applicant' ? OverviewPage : pages[activePage];
 
   // Hash navigation keeps this prototype multi-page without adding a router.
   useEffect(() => {
@@ -319,6 +324,7 @@ export default function App({ user, onLogout }) {
   // Refetch whenever the applications list is actually visible, so swiping
   // on a job elsewhere and coming back shows the newly created application.
   useEffect(() => {
+    if (user.role !== 'applicant') { setApplicationsLoading(false); return; }
     if (activePage !== 'overview' && activePage !== 'applications') return;
 
     const controller = new AbortController();
@@ -326,7 +332,7 @@ export default function App({ user, onLogout }) {
     async function loadApplications() {
       try {
         setApplicationsLoading(true);
-        const data = await fetchApplications(user.profile_id, { signal: controller.signal });
+        const data = await fetchApplications(candidateId, { signal: controller.signal });
         setApplications(data);
       } catch (error) {
         if (error.name !== 'AbortError') setApplications([]);
@@ -337,7 +343,7 @@ export default function App({ user, onLogout }) {
 
     loadApplications();
     return () => controller.abort();
-  }, [activePage, user.profile_id]);
+  }, [activePage, candidateId, user.role]);
 
   return (
     <div className="app-shell">
@@ -348,13 +354,14 @@ export default function App({ user, onLogout }) {
         </a>
 
         <nav className="nav-links">
-          {navigation.map((item) => (
+          {navigation.filter((item) => !item.applicantOnly || user.role === 'applicant').map((item) => (
             <a
               className={`nav-link ${activePage === item.id ? 'active' : ''}`}
               href={`#${item.id}`}
               key={item.id}
             >
               {item.label}
+              {item.id === 'notifications' && notifications.unreadCount > 0 && <span className="notification-count" aria-label={`${notifications.unreadCount} unread notifications`}>{notifications.unreadCount}</span>}
             </a>
           ))}
         </nav>
@@ -379,11 +386,12 @@ export default function App({ user, onLogout }) {
         <ActivePage
           profile={profile}
           onSave={setProfile}
-          candidateId={user.profile_id}
+          candidateId={candidateId}
           accountEmail={user.email}
           onLogout={onLogout}
           applications={applications}
           applicationsLoading={applicationsLoading}
+          notifications={notifications}
         />
       </main>
     </div>

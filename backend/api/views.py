@@ -154,10 +154,20 @@ def set_default_resume(request, resume_id):
 
 def get_user(user_id, role=None):
     try:
-        user = get_object_or_404(UserProfile, pk=user_id)
+        user = UserProfile.objects.filter(pk=user_id).first()
     except (TypeError, ValueError):
         return None
-    return user if not role or user.role == role else None
+    return user if user and (not role or user.role == role) else None
+
+
+def request_candidate(request, legacy_candidate_id=None):
+    if request.user.is_authenticated:
+        if request.user.role != "applicant":
+            return None
+        profile = ensure_user_profile(request.user)
+        return profile if profile.role == UserProfile.Role.CANDIDATE else None
+    # Keep the existing ID-based interface for standalone hackathon clients.
+    return get_user(legacy_candidate_id, UserProfile.Role.CANDIDATE)
 
 
 def serialize_job(job, application=None):
@@ -215,6 +225,7 @@ def serialize_recruiter_candidate(application):
         "skills": application.candidate.skills,
         "job_title": application.job.title,
         "company_name": application.job.company.name,
+        "recruiter_decision": application.recruiter_decision,
         "stage": application.stage,
         "stage_label": application.get_stage_display(),
         "applied_at": application.applied_at.isoformat(),
@@ -223,7 +234,7 @@ def serialize_recruiter_candidate(application):
 
 @require_GET
 def candidate_job_deck(request):
-    candidate = get_user(request.GET.get("candidate_id"), UserProfile.Role.CANDIDATE)
+    candidate = request_candidate(request, request.GET.get("candidate_id"))
     if candidate is None:
         return error("candidate_id must belong to a candidate", 403)
     applications = {item.job_id: item for item in Application.objects.filter(candidate=candidate)}
@@ -244,7 +255,7 @@ def candidate_swipe(request, job_id):
     data = request_json(request)
     if data is None:
         return error("Body must be valid JSON")
-    candidate = get_user(data.get("candidate_id"), UserProfile.Role.CANDIDATE)
+    candidate = request_candidate(request, data.get("candidate_id"))
     if candidate is None:
         return error("candidate_id must belong to a candidate", 403)
     if data.get("decision") not in {"right", "left"}:
@@ -278,6 +289,7 @@ def recruiter_dashboard(request):
             recruiter_decision=Application.RecruiterDecision.PENDING,
         ).count(),
         "interviews": applications.filter(stage=Application.Stage.INTERVIEW).count(),
+        "offers": applications.filter(stage=Application.Stage.OFFER).count(),
     }
     return JsonResponse({
         "stats": stats,
@@ -375,29 +387,34 @@ def recruiter_candidate_deck(request, job_id):
     } for app in applications]})
 
 
-@csrf_exempt
 @require_http_methods(["POST"])
 def recruiter_swipe(request, application_id):
     data = request_json(request)
     if data is None:
         return error("Body must be valid JSON")
-    recruiter = get_user(data.get("recruiter_id"), UserProfile.Role.RECRUITER)
-    if recruiter is None:
-        return error("recruiter_id must belong to a recruiter", 403)
+    recruiter, response = authenticated_profile(request, UserProfile.Role.RECRUITER)
+    if response:
+        return response
     if data.get("decision") not in {"right", "left"}:
         return error("decision must be 'right' or 'left'")
     app = get_object_or_404(Application.objects.select_related("job"), pk=application_id, job__recruiter=recruiter)
     if app.candidate_decision != "applied" or app.recruiter_decision != "pending":
         return error("This application cannot be reviewed", 409)
     app.recruiter_decision = "selected" if data["decision"] == "right" else "rejected"
-    app.stage = Application.Stage.INTERVIEW if data["decision"] == "right" else Application.Stage.REJECTED
+    app.stage = Application.Stage.OFFER if data["decision"] == "right" else Application.Stage.REJECTED
     app.save(update_fields=["recruiter_decision", "stage", "updated_at"])
-    return JsonResponse({"application_id": app.id, "status": app.recruiter_decision, "messaging_unlocked": app.is_match})
+    return JsonResponse({
+        "application_id": app.id,
+        "status": app.recruiter_decision,
+        "stage": app.stage,
+        "stage_label": app.get_stage_display(),
+        "messaging_unlocked": app.is_match,
+    })
 
 
 @require_GET
 def candidate_applications(request):
-    candidate = get_user(request.GET.get("candidate_id"), UserProfile.Role.CANDIDATE)
+    candidate = request_candidate(request, request.GET.get("candidate_id"))
     if candidate is None:
         return error("candidate_id must belong to a candidate", 403)
     applications = Application.objects.filter(
