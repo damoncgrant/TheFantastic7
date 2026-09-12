@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { getInitials, profileStorageKey } from './profile';
+import { getInitials, getProfileStorageKey } from './profile';
 
 const personalFields = [
   { name: 'name', label: 'Full name', autoComplete: 'name', required: true, maxLength: 100 },
@@ -24,7 +24,7 @@ function ProfileField({ field, value, onChange }) {
   );
 }
 
-export default function ProfilePage({ profile, onSave }) {
+export default function ProfilePage({ profile, onSave, accountEmail }) {
   const [draft, setDraft] = useState(() => ({ ...profile }));
   const [feedback, setFeedback] = useState(null);
   const hasChanges = Object.keys(profile).some((key) => draft[key] !== profile[key]);
@@ -44,7 +44,7 @@ export default function ProfilePage({ profile, onSave }) {
       return;
     }
     try {
-      window.localStorage.setItem(profileStorageKey, JSON.stringify(nextProfile));
+      window.localStorage.setItem(getProfileStorageKey(accountEmail), JSON.stringify(nextProfile));
       onSave(nextProfile);
       setDraft(nextProfile);
       setFeedback({ message: 'Your profile has been saved.' });
