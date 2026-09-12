@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import JobSwiper from './UserJobswiper';
+import DMPage from './DMPage.jsx';
 import ProfilePage from './ProfilePage';
 import { getInitials, loadProfile } from './profile';
 import ResumeBuilderPage from './resume_builder/ResumePage.jsx';
@@ -37,6 +38,7 @@ const savedJobs = [
 const navigation = [
   { id: 'overview', label: 'Overview' },
   { id: 'applications', label: 'Applications' },
+  { id: 'messages', label: 'Messages'},
   { id: 'resume', label: 'Resume' },
   { id: 'saved', label: 'Saved jobs' },
 ];
@@ -314,6 +316,7 @@ const pages = {
   resume: ResumeBuilderPage,
   saved: SavedJobsPage,
   swipe: JobSwiper,
+  messages: DMPage,
   profile: ProfilePage,
 };
 
