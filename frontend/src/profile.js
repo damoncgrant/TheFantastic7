@@ -16,11 +16,12 @@ export const defaultProfile = {
   picture: '',
 };
 
-export function loadProfile(accountEmail, accountName) {
+export function loadProfile(accountEmail, accountName, accountPicture = '') {
   const fallback = {
     ...defaultProfile,
     email: accountEmail || defaultProfile.email,
     name: accountName || defaultProfile.name,
+    picture: accountPicture,
   };
   try {
     const saved = JSON.parse(window.localStorage.getItem(getProfileStorageKey(accountEmail)));

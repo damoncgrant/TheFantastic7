@@ -1,9 +1,9 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import JobSwiper from './UserJobswiper';
 import DMPage from './DMPage.jsx';
 import JobDetail from './Components/JobDetail.jsx';
 import ProfilePage from './ProfilePage';
-import { getInitials, loadProfile } from './profile';
+import { getInitials, getProfileStorageKey, loadProfile } from './profile';
 import ResumeBuilderPage from './resume_builder/ResumePage.jsx';
 
 
@@ -12,6 +12,7 @@ import ResumeBuilderPage from './resume_builder/ResumePage.jsx';
 const candidateId = import.meta.env.VITE_CANDIDATE_ID ?? 1;
 import { fetchApplications } from './applications';
 import NotificationsPage, { useNotifications } from './NotificationsPage';
+import { removeCandidateProfilePhoto, uploadCandidateProfilePhoto } from './api.js';
 
 const roleLabels = {
   applicant: 'Applicant',
@@ -322,12 +323,67 @@ function getPageFromHash() {
 export default function App({ user, onLogout }) {
   const candidateId = user.profile_id ?? user.candidateId;
   const [activePage, setActivePage] = useState(getPageFromHash);
-  const [profile, setProfile] = useState(() => loadProfile(user.email, user.name));
+  const [profile, setProfile] = useState(() => loadProfile(user.email, user.name, user.picture_url));
   const [selectedJob, setSelectedJob] = useState(null); // NEW
   const [applications, setApplications] = useState([]);
   const [applicationsLoading, setApplicationsLoading] = useState(true);
+  const legacyPhotoSync = useRef({ source: '', promise: null });
   const notifications = useNotifications(user.role === 'applicant', user.email);
   const ActivePage = activePage === 'notifications' && user.role !== 'applicant' ? OverviewPage : pages[activePage];
+
+  async function saveProfile(nextProfile, pictureChange = {}) {
+    let picture = nextProfile.picture;
+    if (pictureChange.file) {
+      const response = await uploadCandidateProfilePhoto(pictureChange.file);
+      picture = response.photo_url;
+    } else if (pictureChange.removed) {
+      await removeCandidateProfilePhoto();
+      picture = '';
+    } else if (picture.startsWith('data:image/')) {
+      // Profiles saved before server-backed photos used a browser data URL.
+      const pictureBlob = await fetch(picture).then((response) => response.blob());
+      const response = await uploadCandidateProfilePhoto(pictureBlob);
+      picture = response.photo_url;
+    }
+    const savedProfile = { ...nextProfile, picture };
+    setProfile(savedProfile);
+    return savedProfile;
+  }
+
+  // Move a legacy browser-only picture into the candidate record once, so
+  // recruiters can see photos that users saved before database uploads existed.
+  useEffect(() => {
+    const legacyPicture = profile.picture;
+    if (user.role !== 'applicant' || !legacyPicture?.startsWith('data:image/')) return;
+    if (legacyPhotoSync.current.source !== legacyPicture) {
+      legacyPhotoSync.current = {
+        source: legacyPicture,
+        promise: fetch(legacyPicture)
+          .then((response) => response.blob())
+          .then((pictureBlob) => uploadCandidateProfilePhoto(pictureBlob)),
+      };
+    }
+    const syncRequest = legacyPhotoSync.current.promise;
+    let active = true;
+
+    async function syncLegacyPicture() {
+      try {
+        const response = await syncRequest;
+        if (!active) return;
+        setProfile((current) => {
+          if (current.picture !== legacyPicture) return current;
+          const syncedProfile = { ...current, picture: response.photo_url };
+          window.localStorage.setItem(getProfileStorageKey(user.email), JSON.stringify(syncedProfile));
+          return syncedProfile;
+        });
+      } catch {
+        // Leave the browser copy intact so the user does not lose their photo.
+      }
+    }
+
+    syncLegacyPicture();
+    return () => { active = false; };
+  }, [profile.picture, user.email, user.role]);
 
   // Hash navigation keeps this prototype multi-page without adding a router.
   useEffect(() => {
@@ -404,7 +460,7 @@ export default function App({ user, onLogout }) {
       <main className={`dashboard${activePage === 'resume' ? ' resume-dashboard' : ''}`} key={activePage}>
         <ActivePage
           profile={profile}
-          onSave={setProfile}
+          onSave={saveProfile}
           candidateId={candidateId}
           accountEmail={user.email}
           onLogout={onLogout}
