@@ -32,3 +32,12 @@ class MatchingFlowTests(TestCase):
         self.post(f"/api/jobs/{self.job.id}/swipe/", {"candidate_id": self.candidate.id, "decision": "left"})
         deck = self.client.get(f"/api/jobs/deck/?candidate_id={self.candidate.id}")
         self.assertEqual(deck.json()["jobs"][0]["swipe_status"], "skipped")
+
+    def test_swipe_endpoint_accepts_spa_json_without_csrf_cookie(self):
+        client = self.client_class(enforce_csrf_checks=True)
+        response = client.post(
+            f"/api/jobs/{self.job.id}/swipe/",
+            data=json.dumps({"candidate_id": self.candidate.id, "decision": "right"}),
+            content_type="application/json",
+        )
+        self.assertEqual(response.status_code, 200)

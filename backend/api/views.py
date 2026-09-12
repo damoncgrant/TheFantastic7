@@ -3,6 +3,7 @@ import json
 from django.db.models import Case, IntegerField, Value, When
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404
+from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_GET, require_http_methods
 
 from .models import Application, Job, Message, UserProfile
@@ -58,6 +59,7 @@ def candidate_job_deck(request):
     return JsonResponse({"jobs": [serialize_job(job, applications.get(job.id)) for job in jobs]})
 
 
+@csrf_exempt
 @require_http_methods(["POST"])
 def candidate_swipe(request, job_id):
     data = request_json(request)
@@ -91,6 +93,7 @@ def recruiter_candidate_deck(request, job_id):
     } for app in applications]})
 
 
+@csrf_exempt
 @require_http_methods(["POST"])
 def recruiter_swipe(request, application_id):
     data = request_json(request)
@@ -127,6 +130,7 @@ def messages(request, application_id):
     return JsonResponse({"messages": [{"id": msg.id, "sender_id": msg.sender_id, "body": msg.body, "created_at": msg.created_at.isoformat()} for msg in app.messages.all()]})
 
 
+@csrf_exempt
 @require_http_methods(["POST"])
 def send_message(request, application_id):
     data = request_json(request)
