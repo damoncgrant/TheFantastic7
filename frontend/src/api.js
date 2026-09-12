@@ -6,7 +6,7 @@ function getCookie(name) {
   return match ? decodeURIComponent(match[1]) : null;
 }
 
-async function request(path, options = {}) {
+export async function apiRequest(path, options = {}) {
   const response = await fetch(path, {
     ...options,
     credentials: 'same-origin',
@@ -25,27 +25,27 @@ async function request(path, options = {}) {
 }
 
 export function fetchCsrf(options) {
-  return request('/api/auth/csrf/', options);
+  return apiRequest('/api/auth/csrf/', options);
 }
 
 export function fetchCurrentUser(options) {
-  return request('/api/auth/me/', options);
+  return apiRequest('/api/auth/me/', options);
 }
 
 export function signup({ email, password, name, role }) {
-  return request('/api/auth/signup/', {
+  return apiRequest('/api/auth/signup/', {
     method: 'POST',
     body: JSON.stringify({ email, password, name, role }),
   });
 }
 
 export function login({ email, password }) {
-  return request('/api/auth/login/', {
+  return apiRequest('/api/auth/login/', {
     method: 'POST',
     body: JSON.stringify({ email, password }),
   });
 }
 
 export function logout() {
-  return request('/api/auth/logout/', { method: 'POST' });
+  return apiRequest('/api/auth/logout/', { method: 'POST' });
 }
