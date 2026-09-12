@@ -3,10 +3,16 @@ import JobSwiper from './UserJobswiper';
 import DMPage from './DMPage.jsx';
 import ProfilePage from './ProfilePage';
 import { getInitials, loadProfile } from './profile';
+import ResumeBuilderPage from './resume_builder/ResumePage.jsx';
 
 // For this hackathon API, the active profile is provided explicitly.
 // Set VITE_CANDIDATE_ID in frontend/.env.local to a UserProfile primary key.
 const candidateId = import.meta.env.VITE_CANDIDATE_ID ?? 1;
+
+const roleLabels = {
+  applicant: 'Applicant',
+  employer: 'Employer',
+};
 
 // Temporary display data. These records can be replaced with Django API data later.
 const applicationStats = [
@@ -259,7 +265,7 @@ function SavedJobsPage() {
 const pages = {
   overview: OverviewPage,
   applications: ApplicationsPage,
-  resume: ResumePage,
+  resume: ResumeBuilderPage,
   saved: SavedJobsPage,
   swipe: JobSwiper,
   messages: DMPage,
@@ -271,9 +277,9 @@ function getPageFromHash() {
   return Object.hasOwn(pages, page) ? page : 'overview';
 }
 
-export default function App() {
+export default function App({ user }) {
   const [activePage, setActivePage] = useState(getPageFromHash);
-  const [profile, setProfile] = useState(loadProfile);
+  const [profile, setProfile] = useState(() => loadProfile(user.email, user.name));
   const ActivePage = pages[activePage];
 
   // Hash navigation keeps this prototype multi-page without adding a router.
@@ -308,13 +314,13 @@ export default function App() {
           <span className="avatar" aria-hidden="true">{getInitials(profile.name)}</span>
           <span>
             <strong>{profile.name}</strong>
-            <small>Job seeker</small>
+            <small>{roleLabels[user.role] ?? user.role}</small>
           </span>
         </a>
       </aside>
 
-      <main className="dashboard" key={activePage}>
-        <ActivePage profile={profile} onSave={setProfile} candidateId={candidateId} />
+      <main className={`dashboard${activePage === 'resume' ? ' resume-dashboard' : ''}`} key={activePage}>
+        <ActivePage profile={profile} onSave={setProfile} candidateId={candidateId} accountEmail={user.email} />
       </main>
     </div>
   );
