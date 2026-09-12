@@ -181,7 +181,6 @@ function ApplicationsPage({ candidateId }) {
         eyebrow="Track your progress"
         title="Applications"
         description="Every opportunity and update in one place."
-        action={<button className="primary-button" type="button">Add application</button>}
       />
 
       <section className="filter-row" aria-label="Application filters">
