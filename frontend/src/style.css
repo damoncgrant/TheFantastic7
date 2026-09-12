@@ -2781,3 +2781,32 @@ h2 {
 .onboarding-actions .link-button {
   margin-top: 0;
 }
+
+/* Job/application detail screen */
+.job-detail-page .back-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 0;
+  margin-bottom: 24px;
+}
+
+.job-detail-identity {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+}
+
+.job-detail-identity p {
+  color: var(--muted);
+}
+
+.job-detail-avatar {
+  width: 56px;
+  height: 56px;
+  font-size: 1.1rem;
+}
+
+.job-detail-panel .job-meta {
+  margin-top: 4px;
+}
