@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
 import ImageDescription from "./Components/ImageDescription";
 import TextDescription from "./Components/TextDescription";
 import SwipeButton from "./Components/SwipeButton";
+import JobDetail from "./Components/JobDetail.jsx";
 
 /**
  * JobSwiper
@@ -32,6 +33,7 @@ export default function JobSwiper({ candidateId }) {
   const [error, setError] = useState("");
   const [dragX, setDragX] = useState(0);
   const [exiting, setExiting] = useState(null); // "left" | "right" | null
+  const [selectedJob, setSelectedJob] = useState(null); // NEW
   const dragging = useRef(false);
   const startX = useRef(0);
 
@@ -104,6 +106,11 @@ export default function JobSwiper({ candidateId }) {
       : "translateX(-600px) rotate(-18deg)"
     : `translateX(${dragX}px) rotate(${dragX / 22}deg)`;
 
+  // Deals with the job pop up
+  if (selectedJob) {
+      return <JobDetail job={selectedJob} onBack={() => setSelectedJob(null)} />;
+  }
+
   return (
     <div
       style={{
@@ -144,6 +151,15 @@ export default function JobSwiper({ candidateId }) {
 
           <SwipeButton side="left" label="reject" color="#8C4432" onClick={() => commitSwipe("left")} />
           <SwipeButton side="right" label="accept" color="#3F6B4F" onClick={() => commitSwipe("right")} />
+
+          <button
+            onClick={(e) => {
+              e.stopPropagation(); // don't let the drag handlers see this as a swipe
+              setSelectedJob(current);
+            }}
+          >
+            BUTTON
+          </button>
         </>
       ) : (
         <div style={{ color: "#8A8578", fontSize: 15 }}>No more listings — check back later.</div>

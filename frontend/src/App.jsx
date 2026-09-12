@@ -1,9 +1,11 @@
 import { useEffect, useState } from 'react';
 import JobSwiper from './UserJobswiper';
 import DMPage from './DMPage.jsx';
+import JobDetail from './Components/JobDetail.jsx';
 import ProfilePage from './ProfilePage';
 import { getInitials, loadProfile } from './profile';
 import ResumeBuilderPage from './resume_builder/ResumePage.jsx';
+
 
 // For this hackathon API, the active profile is provided explicitly.
 // Set VITE_CANDIDATE_ID in frontend/.env.local to a UserProfile primary key.
@@ -56,11 +58,19 @@ function PageHeader({ eyebrow, title, description, action }) {
   );
 }
 
-function ApplicationRow({ application }) {
+function ApplicationRow({ application, onSelectJob }) {
   const statusClass = application.status.toLowerCase();
 
   return (
-    <article className={`application-row application-${statusClass}`}>
+    <article
+      className={`application-row application-${statusClass}`}
+      onClick={() => onSelectJob(application)}
+      role="button"
+      tabIndex={0}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") onSelectJob(application);
+      }}
+    >
       {application.profile ? (
         <img
           className="company-profile"
@@ -83,7 +93,7 @@ function ApplicationRow({ application }) {
   );
 }
 
-function OverviewPage({ profile }) {
+function OverviewPage({ profile, onSelectJob }) {
   return (
     <>
       <PageHeader
@@ -127,7 +137,7 @@ function OverviewPage({ profile }) {
         </div>
         <div className="application-list">
           {applications.slice(0, 3).map((application) => (
-            <ApplicationRow application={application} key={`${application.company}-${application.role}`} />
+            <ApplicationRow application={application} onSelectJob={onSelectJob} key={`${application.company}-${application.role}`} />
           ))}
         </div>
       </section>
@@ -137,7 +147,7 @@ function OverviewPage({ profile }) {
 
 const applicationFilters = ['all', 'applied', 'interview', 'offer', 'rejected'];
 
-function ApplicationsPage({ candidateId }) {
+function ApplicationsPage({ candidateId, onSelectJob }) {
   const [activeFilter, setActiveFilter] = useState('all');
   const [applicationsList, setApplicationsList] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -207,7 +217,7 @@ function ApplicationsPage({ candidateId }) {
           {loading && <p>Loading applications…</p>}
           {!loading && error && <p role="alert">{error}</p>}
           {!loading && !error && filteredApplications.map((application) => (
-            <ApplicationRow application={application} key={application.id} />
+            <ApplicationRow application={application} onSelectJob={onSelectJob} key={application.id} />
           ))}
           {!loading && !error && filteredApplications.length === 0 && <p>No applications in this stage yet.</p>}
         </div>
@@ -327,6 +337,7 @@ function getPageFromHash() {
 export default function App({ user, onLogout }) {
   const [activePage, setActivePage] = useState(getPageFromHash);
   const [profile, setProfile] = useState(() => loadProfile(user.email, user.name));
+  const [selectedJob, setSelectedJob] = useState(null); // NEW
   const ActivePage = pages[activePage];
 
   // Hash navigation keeps this prototype multi-page without adding a router.
@@ -335,6 +346,11 @@ export default function App({ user, onLogout }) {
     window.addEventListener('hashchange', updatePage);
     return () => window.removeEventListener('hashchange', updatePage);
   }, []);
+
+  // Page overlay of job posting
+  if (selectedJob) {
+    return <JobDetail job={selectedJob} onBack={() => setSelectedJob(null)} />;
+  }
 
   return (
     <div className="app-shell">
@@ -369,7 +385,14 @@ export default function App({ user, onLogout }) {
       </aside>
 
       <main className={`dashboard${activePage === 'resume' ? ' resume-dashboard' : ''}`} key={activePage}>
-        <ActivePage profile={profile} onSave={setProfile} candidateId={candidateId} accountEmail={user.email} onLogout={onLogout} />
+        <ActivePage 
+          profile={profile} 
+          onSave={setProfile} 
+          candidateId={candidateId} 
+          accountEmail={user.email} 
+          onLogout={onLogout} 
+          onSelectJob={setSelectedJob}
+        />
       </main>
     </div>
   );
