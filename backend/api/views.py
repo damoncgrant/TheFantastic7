@@ -1,5 +1,6 @@
 import json
 import mimetypes
+import re
 from urllib.parse import quote
 from uuid import uuid4
 
@@ -277,7 +278,44 @@ def serialize_recruiter_job(job):
     }
 
 
+def candidate_resume_for_application(application):
+    """Use the submitted resume, or the candidate's default for older applications."""
+    if application.resume:
+        return application.resume
+    return Resume.objects.filter(
+        user__email__iexact=application.candidate.email,
+    ).order_by("-is_default", "-updated_at", "-id").first()
+
+
+def candidate_keywords(application, resume):
+    """Build concise, factual pills from profile and structured resume fields."""
+    raw_values = [application.candidate.headline, *application.candidate.skills]
+    builder_data = resume.builder_data if resume and isinstance(resume.builder_data, dict) else {}
+    skills = builder_data.get("skills")
+    if isinstance(skills, dict):
+        raw_values.extend(skills.values())
+    for experience in builder_data.get("experience", []):
+        if isinstance(experience, dict):
+            raw_values.append(experience.get("title", ""))
+    for project in builder_data.get("projects", []):
+        if isinstance(project, dict):
+            raw_values.append(project.get("stack", ""))
+
+    keywords = []
+    for raw_value in raw_values:
+        if not isinstance(raw_value, str):
+            continue
+        for value in re.split(r"[,;|\n]+", raw_value):
+            value = value.strip()
+            if value and value.casefold() not in {item.casefold() for item in keywords}:
+                keywords.append(value[:48])
+            if len(keywords) == 8:
+                return keywords
+    return keywords or [application.job.title, "Applicant"]
+
+
 def serialize_recruiter_candidate(application):
+    resume = candidate_resume_for_application(application)
     return {
         "application_id": application.id,
         # Include the posting id so the Manage page can show only this job's applicants.
@@ -297,6 +335,11 @@ def serialize_recruiter_candidate(application):
         "stage": application.stage,
         "stage_label": application.get_stage_display(),
         "applied_at": application.applied_at.isoformat(),
+        "keywords": candidate_keywords(application, resume),
+        "resume": ({
+            "name": resume.name,
+            "image_url": f"/api/applications/{application.id}/resume/",
+        } if resume else None),
     }
 
 
@@ -409,7 +452,7 @@ def recruiter_dashboard(request):
     applications = Application.objects.filter(
         job__recruiter=recruiter,
         candidate_decision=Application.CandidateDecision.APPLIED,
-    ).select_related("candidate", "job__company").order_by("-applied_at")
+    ).select_related("candidate", "job__company", "resume").order_by("-applied_at")
 
     stats = {
         "open_positions": jobs.filter(is_active=True).count(),
@@ -663,6 +706,30 @@ def recruiter_swipe(request, application_id):
         "stage_label": app.get_stage_display(),
         "messaging_unlocked": app.is_match,
     })
+
+
+@require_GET
+def recruiter_application_resume(request, application_id):
+    """Render the submitted resume only for the recruiter who owns the job."""
+    recruiter, response = authenticated_profile(request, UserProfile.Role.RECRUITER)
+    if response:
+        return response
+    application = get_object_or_404(
+        Application.objects.select_related("candidate", "job", "resume"),
+        pk=application_id,
+        job__recruiter=recruiter,
+        candidate_decision=Application.CandidateDecision.APPLIED,
+    )
+    resume = candidate_resume_for_application(application)
+    if resume is None:
+        return error("This candidate did not submit a resume.", 404)
+    try:
+        image = compile_png(resume.latex.encode("utf-8"))
+    except LatexError as exc:
+        return JsonResponse({"error": str(exc), "details": exc.details}, status=exc.status)
+    response = HttpResponse(image, content_type="image/png")
+    response["Cache-Control"] = "private, max-age=300"
+    return response
 
 
 @require_GET

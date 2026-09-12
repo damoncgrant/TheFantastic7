@@ -100,16 +100,45 @@ function applicantBelongsToJob(candidate, job) {
   return candidate.job_title === job.title && candidate.company_name === job.company.name;
 }
 
+function CandidateResumePanel({ candidate, imageError, onImageError }) {
+  return (
+    <aside className="recruiter-resume-panel" aria-labelledby="candidate-resume-heading">
+      <div className="recruiter-resume-heading">
+        <div>
+          <p className="eyebrow">Submitted document</p>
+          <h2 id="candidate-resume-heading">Candidate resume</h2>
+        </div>
+        {candidate.resume && <span>{candidate.resume.name}</span>}
+      </div>
+      {!candidate.resume ? (
+        <div className="recruiter-resume-empty">
+          <strong>No resume submitted</strong>
+          <p>This candidate does not have a saved resume available.</p>
+        </div>
+      ) : imageError ? (
+        <div className="recruiter-resume-empty" role="alert">
+          <strong>Resume preview unavailable</strong>
+          <p>The saved resume could not be rendered. The candidate can update it and apply again.</p>
+        </div>
+      ) : (
+        <img src={candidate.resume.image_url} alt={`${candidate.name}'s submitted resume`} onError={onImageError} />
+      )}
+    </aside>
+  );
+}
+
 function RecruiterCandidateSwiper({ candidates, onCandidateReviewed }) {
   const [queue, setQueue] = useState(candidates);
   const [dragX, setDragX] = useState(0);
   const [exiting, setExiting] = useState(null);
   const [error, setError] = useState('');
+  const [resumeImageError, setResumeImageError] = useState(false);
   const dragging = useRef(false);
   const startX = useRef(0);
   const current = queue[0];
 
   useEffect(() => setQueue(candidates), [candidates]);
+  useEffect(() => setResumeImageError(false), [current?.application_id]);
 
   const commitSwipe = useCallback(async (direction) => {
     if (!current || exiting) return;
@@ -140,6 +169,9 @@ function RecruiterCandidateSwiper({ candidates, onCandidateReviewed }) {
   }
 
   const initials = candidateInitials(current);
+  const keywords = current.keywords?.length
+    ? current.keywords
+    : current.skills?.length ? current.skills : [current.job_title, 'Applicant'];
   const cardTransform = exiting
     ? `translateX(${exiting === 'right' ? '125%' : '-125%'}) rotate(${exiting === 'right' ? '12deg' : '-12deg'})`
     : `translateX(${dragX}px) rotate(${dragX / 28}deg)`;
@@ -169,41 +201,47 @@ function RecruiterCandidateSwiper({ candidates, onCandidateReviewed }) {
         <span>Drag or use the buttons</span>
       </div>
 
-      <article
-        className={`recruiter-swipe-card${exiting ? ' is-exiting' : ''}`}
-        style={{ transform: cardTransform }}
-        onPointerDown={beginDrag}
-        onPointerMove={moveDrag}
-        onPointerUp={endDrag}
-        onPointerCancel={endDrag}
-      >
-        <div className="recruiter-swipe-portrait">
-          <span className="recruiter-swipe-label">Candidate profile</span>
-          {current.photo_url ? (
-            <img className="recruiter-swipe-photo" src={current.photo_url} alt={`${current.name}'s profile`} />
-          ) : (
-            <span className="recruiter-swipe-avatar" aria-hidden="true">{initials}</span>
-          )}
-          {Math.abs(dragX) > 55 && (
-            <span className={`recruiter-swipe-stamp ${dragX > 0 ? 'offer' : 'reject'}`}>
-              {dragX > 0 ? 'Offer' : 'Reject'}
-            </span>
-          )}
-        </div>
-        <div className="recruiter-swipe-details">
-          <div>
-            <h2>{current.name}</h2>
-            <p>{current.headline || 'Candidate'}</p>
+      <div className="recruiter-review-layout">
+        <article
+          className={`recruiter-swipe-card${exiting ? ' is-exiting' : ''}`}
+          style={{ transform: cardTransform }}
+          onPointerDown={beginDrag}
+          onPointerMove={moveDrag}
+          onPointerUp={endDrag}
+          onPointerCancel={endDrag}
+        >
+          <div className="recruiter-swipe-portrait">
+            <span className="recruiter-swipe-label">Candidate profile</span>
+            {current.photo_url ? (
+              <img className="recruiter-swipe-photo" src={current.photo_url} alt={`${current.name}'s profile`} />
+            ) : (
+              <span className="recruiter-swipe-avatar" aria-hidden="true">{initials}</span>
+            )}
+            {Math.abs(dragX) > 55 && (
+              <span className={`recruiter-swipe-stamp ${dragX > 0 ? 'offer' : 'reject'}`}>
+                {dragX > 0 ? 'Offer' : 'Reject'}
+              </span>
+            )}
           </div>
-          <p className="recruiter-applied-role">Applied for <strong>{current.job_title}</strong> at {current.company_name}</p>
-          {current.bio && <p className="recruiter-candidate-bio">{current.bio}</p>}
-          {current.skills?.length > 0 && (
-            <div className="recruiter-swipe-skills" aria-label="Candidate skills">
-              {current.skills.slice(0, 5).map((skill) => <span key={skill}>{skill}</span>)}
+          <div className="recruiter-swipe-details">
+            <div>
+              <h2>{current.name}</h2>
+              <p>{current.headline || 'Candidate'}</p>
             </div>
-          )}
-        </div>
-      </article>
+            <p className="recruiter-applied-role">Applied for <strong>{current.job_title}</strong> at {current.company_name}</p>
+            {current.bio && <p className="recruiter-candidate-bio">{current.bio}</p>}
+            <div className="recruiter-swipe-skills" aria-label="Candidate keywords">
+              {keywords.map((keyword) => <span key={keyword}>{keyword}</span>)}
+            </div>
+          </div>
+        </article>
+
+        <CandidateResumePanel
+          candidate={current}
+          imageError={resumeImageError}
+          onImageError={() => setResumeImageError(true)}
+        />
+      </div>
 
       <div className="recruiter-swipe-actions">
         <button className="recruiter-reject-button" type="button" onClick={() => commitSwipe('left')} disabled={Boolean(exiting)}>
