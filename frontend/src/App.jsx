@@ -277,7 +277,7 @@ function getPageFromHash() {
   return Object.hasOwn(pages, page) ? page : 'overview';
 }
 
-export default function App({ user }) {
+export default function App({ user, onLogout }) {
   const [activePage, setActivePage] = useState(getPageFromHash);
   const [profile, setProfile] = useState(() => loadProfile(user.email, user.name));
   const ActivePage = pages[activePage];
@@ -322,7 +322,7 @@ export default function App({ user }) {
       </aside>
 
       <main className={`dashboard${activePage === 'resume' ? ' resume-dashboard' : ''}`} key={activePage}>
-        <ActivePage profile={profile} onSave={setProfile} candidateId={candidateId} accountEmail={user.email} />
+        <ActivePage profile={profile} onSave={setProfile} candidateId={candidateId} accountEmail={user.email} onLogout={onLogout} />
       </main>
     </div>
   );

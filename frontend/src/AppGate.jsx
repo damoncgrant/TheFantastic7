@@ -4,7 +4,7 @@
 import { useEffect, useState } from 'react';
 import App from './App.jsx';
 import AuthPage from './AuthPage.jsx';
-import { fetchCsrf, fetchCurrentUser } from './api.js';
+import { fetchCsrf, fetchCurrentUser, logout } from './api.js';
 
 export default function AppGate() {
   const [status, setStatus] = useState('loading');
@@ -30,12 +30,21 @@ export default function AppGate() {
     return () => controller.abort();
   }, []);
 
+  async function handleLogout() {
+    try {
+      await logout();
+    } finally {
+      setUser(null);
+      setStatus('guest');
+    }
+  }
+
   if (status === 'loading') {
     return <p role="status">Loading…</p>;
   }
 
   if (status === 'authenticated' && user) {
-    return <App user={user} />;
+    return <App user={user} onLogout={handleLogout} />;
   }
 
   return (
