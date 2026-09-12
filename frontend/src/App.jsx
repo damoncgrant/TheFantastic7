@@ -10,26 +10,13 @@ import ResumeBuilderPage from './resume_builder/ResumePage.jsx';
 // For this hackathon API, the active profile is provided explicitly.
 // Set VITE_CANDIDATE_ID in frontend/.env.local to a UserProfile primary key.
 const candidateId = import.meta.env.VITE_CANDIDATE_ID ?? 1;
+import { fetchApplications } from './applications';
+import NotificationsPage, { useNotifications } from './NotificationsPage';
 
 const roleLabels = {
   applicant: 'Applicant',
-  employer: 'Employer',
+  employer: 'Recruiter',
 };
-
-// Temporary display data. These records can be replaced with Django API data later.
-const applicationStats = [
-  { label: 'Applications sent', value: '12' },
-  { label: 'Interviews', value: '3' },
-  { label: 'Offers', value: '1' },
-];
-
-const applications = [
-  { company: 'Northstar Labs', role: 'Frontend Developer', date: 'Sep 10', status: 'Interview', profile: '/company-profiles/northstar-contact.png' },
-  { company: 'Cedar Systems', role: 'Software Developer', date: 'Sep 8', status: 'Applied', profile: '/company-profiles/cedar-contact.png' },
-  { company: 'Prairie Digital', role: 'UX Engineer', date: 'Sep 5', status: 'Applied', profile: '/company-profiles/prairie-contact.png' },
-  { company: 'Aurora Health', role: 'Product Designer', date: 'Aug 29', status: 'Offer', profile: '/company-profiles/aurora-contact.png' },
-  { company: 'Summit AI', role: 'Junior Developer', date: 'Aug 24', status: 'Rejected' },
-];
 
 const savedJobs = [
   { company: 'Evergreen Tech', role: 'Full Stack Developer', location: 'Edmonton, AB', type: 'Full time', profile: '/company-profiles/northstar-contact.png' },
@@ -41,6 +28,7 @@ const navigation = [
   { id: 'overview', label: 'Overview' },
   { id: 'applications', label: 'Applications' },
   { id: 'messages', label: 'Messages'},
+  { id: 'notifications', label: 'Notifications', applicantOnly: true },
   { id: 'resume', label: 'Resume' },
   { id: 'saved', label: 'Saved jobs' },
 ];
@@ -93,7 +81,30 @@ function ApplicationRow({ application, onSelectJob }) {
   );
 }
 
-function OverviewPage({ profile, onSelectJob }) {
+function EmptyApplications() {
+  return (
+    <section className="empty-applications">
+      <div>
+        <h2>No outgoing applications</h2>
+        <p>Swipe right on a job to send your first application.</p>
+        <a className="primary-button button-link swipe-button" href="#swipe">
+          <span className="swipe-button-copy">
+            <strong>Start swiping</strong>
+            <small>Find jobs to apply to</small>
+          </span>
+          <span className="swipe-button-icon" aria-hidden="true">→</span>
+        </a>
+      </div>
+    </section>
+  );
+}
+
+function OverviewPage({ profile, applications, applicationsLoading, onSelectJob }) {
+  const applicationStats = [
+    { label: 'Applications sent', value: applications.length },
+    { label: 'Interviews', value: applications.filter((application) => application.stage === 'interview').length },
+    { label: 'Offers', value: applications.filter((application) => application.stage === 'offer').length },
+  ];
   return (
     <>
       <PageHeader
@@ -112,7 +123,7 @@ function OverviewPage({ profile, onSelectJob }) {
         <a className="primary-button button-link swipe-button" href="#swipe">
           <span className="swipe-button-copy">
             <strong>Start swiping</strong>
-            <small>12 new jobs waiting</small>
+            <small>Find jobs to apply to</small>
           </span>
           <span className="swipe-button-icon" aria-hidden="true">→</span>
         </a>
@@ -135,11 +146,15 @@ function OverviewPage({ profile, onSelectJob }) {
           </div>
           <a href="#applications">View all</a>
         </div>
-        <div className="application-list">
-          {applications.slice(0, 3).map((application) => (
-            <ApplicationRow application={application} onSelectJob={onSelectJob} key={`${application.company}-${application.role}`} />
-          ))}
-        </div>
+        {applicationsLoading ? null : applications.length === 0 ? (
+          <EmptyApplications />
+        ) : (
+          <div className="application-list">
+            {applications.slice(0, 3).map((application) => (
+              <ApplicationRow application={application} onSelectJob={onSelectJob} key={application.id} />
+            ))}
+          </div>
+        )}
       </section>
     </>
   );
@@ -147,43 +162,11 @@ function OverviewPage({ profile, onSelectJob }) {
 
 const applicationFilters = ['all', 'applied', 'interview', 'offer', 'rejected'];
 
-function ApplicationsPage({ candidateId, onSelectJob }) {
+function ApplicationsPage({ applications, applicationsLoading, onSelectJob }) {
   const [activeFilter, setActiveFilter] = useState('all');
-  const [applicationsList, setApplicationsList] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
-
-  useEffect(() => {
-    const controller = new AbortController();
-
-    async function loadApplications() {
-      try {
-        setLoading(true);
-        const response = await fetch(`/api/applications/?candidate_id=${encodeURIComponent(candidateId)}`, { signal: controller.signal });
-        const data = await response.json();
-        if (!response.ok) throw new Error(data.error || 'Could not load applications');
-        setApplicationsList(data.applications.map((application) => ({
-          id: application.id,
-          company: application.job.company.name,
-          role: application.job.title,
-          date: new Date(application.applied_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }),
-          status: application.stage_label,
-          profile: application.job.company.logo_url,
-        })));
-      } catch (loadError) {
-        if (loadError.name !== 'AbortError') setError(loadError.message || 'Could not load applications');
-      } finally {
-        if (!controller.signal.aborted) setLoading(false);
-      }
-    }
-
-    loadApplications();
-    return () => controller.abort();
-  }, [candidateId]);
-
   const filteredApplications = activeFilter === 'all'
-    ? applicationsList
-    : applicationsList.filter((application) => application.status.toLowerCase() === activeFilter);
+    ? applications
+    : applications.filter((application) => application.stage === activeFilter);
 
   return (
     <>
@@ -210,28 +193,33 @@ function ApplicationsPage({ candidateId, onSelectJob }) {
         <div className="section-heading">
           <div>
             <p className="eyebrow">{filteredApplications.length} shown</p>
-            <h2 id="all-applications-heading">{activeFilter === 'all' ? 'All applications' : `${activeFilter.charAt(0).toUpperCase()}${activeFilter.slice(1)} applications`}</h2>
+            <h2 id="all-applications-heading">
+              {activeFilter === 'all' ? 'All applications' : `${activeFilter.charAt(0).toUpperCase()}${activeFilter.slice(1)} applications`}
+            </h2>
           </div>
         </div>
-        <div className="application-list">
-          {loading && <p>Loading applications…</p>}
-          {!loading && error && <p role="alert">{error}</p>}
-          {!loading && !error && filteredApplications.map((application) => (
-            <ApplicationRow application={application} onSelectJob={onSelectJob} key={application.id} />
-          ))}
-          {!loading && !error && filteredApplications.length === 0 && <p>No applications in this stage yet.</p>}
-        </div>
+        {applicationsLoading ? (
+          <p>Loading applications…</p>
+        ) : filteredApplications.length === 0 ? (
+          <EmptyApplications />
+        ) : (
+          <div className="application-list">
+            {filteredApplications.map((application) => (
+              <ApplicationRow application={application} onSelectJob={onSelectJob} key={application.id} />
+            ))}
+          </div>
+        )}
       </section>
     </>
   );
 }
 
-function ResumePage({ profile }) {
+function ResumePage() {
   return (
     <>
       <PageHeader
         eyebrow="Your master profile"
-        title="Resume"
+        title="Resume"  
         description="Keep one strong foundation ready to tailor for each role."
         action={<button className="primary-button" type="button">Edit resume</button>}
       />
@@ -241,15 +229,15 @@ function ResumePage({ profile }) {
           <div className="resume-nameplate">
             <div>
               <p className="eyebrow">Master resume</p>
-              <h2>{profile.name}</h2>
-              <span>{[profile.headline, profile.location].filter(Boolean).join(' • ')}</span>
+              <h2>Chud</h2>
+              <span>Software Developer • Edmonton, AB</span>
             </div>
             <span className="completion">85% complete</span>
           </div>
 
           <div className="resume-section">
             <h3>Summary</h3>
-            <p>{profile.bio}</p>
+            <p>Computer science student interested in thoughtful software, accessible interfaces, and collaborative teams.</p>
           </div>
           <div className="resume-section">
             <h3>Experience</h3>
@@ -294,11 +282,7 @@ function SavedJobsPage() {
         {savedJobs.map((job) => (
           <article className="saved-card" key={`${job.company}-${job.role}`}>
             <div className="saved-card-top">
-              <img
-                className="company-profile saved-profile"
-                src={job.profile}
-                alt={`Company contact for ${job.company}`}
-              />
+              <span className="company-mark" aria-hidden="true">{job.company.charAt(0)}</span>
               <button className="bookmark-button" type="button" aria-label={`Remove ${job.role} from saved jobs`}>
                 Saved
               </button>
@@ -322,11 +306,12 @@ function SavedJobsPage() {
 const pages = {
   overview: OverviewPage,
   applications: ApplicationsPage,
+  messages: DMPage,
   resume: ResumeBuilderPage,
   saved: SavedJobsPage,
   swipe: JobSwiper,
-  messages: DMPage,
   profile: ProfilePage,
+  notifications: NotificationsPage,
 };
 
 function getPageFromHash() {
@@ -335,10 +320,14 @@ function getPageFromHash() {
 }
 
 export default function App({ user, onLogout }) {
+  const candidateId = user.profile_id ?? user.candidateId;
   const [activePage, setActivePage] = useState(getPageFromHash);
   const [profile, setProfile] = useState(() => loadProfile(user.email, user.name));
   const [selectedJob, setSelectedJob] = useState(null); // NEW
-  const ActivePage = pages[activePage];
+  const [applications, setApplications] = useState([]);
+  const [applicationsLoading, setApplicationsLoading] = useState(true);
+  const notifications = useNotifications(user.role === 'applicant', user.email);
+  const ActivePage = activePage === 'notifications' && user.role !== 'applicant' ? OverviewPage : pages[activePage];
 
   // Hash navigation keeps this prototype multi-page without adding a router.
   useEffect(() => {
@@ -351,6 +340,29 @@ export default function App({ user, onLogout }) {
   if (selectedJob) {
     return <JobDetail job={selectedJob} onBack={() => setSelectedJob(null)} />;
   }
+  // Refetch whenever the applications list is actually visible, so swiping
+  // on a job elsewhere and coming back shows the newly created application.
+  useEffect(() => {
+    if (user.role !== 'applicant') { setApplicationsLoading(false); return; }
+    if (activePage !== 'overview' && activePage !== 'applications') return;
+
+    const controller = new AbortController();
+
+    async function loadApplications() {
+      try {
+        setApplicationsLoading(true);
+        const data = await fetchApplications(candidateId, { signal: controller.signal });
+        setApplications(data);
+      } catch (error) {
+        if (error.name !== 'AbortError') setApplications([]);
+      } finally {
+        if (!controller.signal.aborted) setApplicationsLoading(false);
+      }
+    }
+
+    loadApplications();
+    return () => controller.abort();
+  }, [activePage, candidateId, user.role]);
 
   return (
     <div className="app-shell">
@@ -361,19 +373,24 @@ export default function App({ user, onLogout }) {
         </a>
 
         <nav className="nav-links">
-          {navigation.map((item) => (
+          {navigation.filter((item) => !item.applicantOnly || user.role === 'applicant').map((item) => (
             <a
               className={`nav-link ${activePage === item.id ? 'active' : ''}`}
               href={`#${item.id}`}
-              aria-current={activePage === item.id ? 'page' : undefined}
               key={item.id}
             >
               {item.label}
+              {item.id === 'notifications' && notifications.unreadCount > 0 && <span className="notification-count" aria-label={`${notifications.unreadCount} unread notifications`}>{notifications.unreadCount}</span>}
             </a>
           ))}
         </nav>
 
-        <a className={`profile ${activePage === 'profile' ? 'active' : ''}`} href="#profile" aria-label="Edit personal profile" aria-current={activePage === 'profile' ? 'page' : undefined}>
+        <a
+          className={`profile ${activePage === 'profile' ? 'active' : ''}`}
+          href="#profile"
+          aria-label="Edit personal profile"
+          aria-current={activePage === 'profile' ? 'page' : undefined}
+        >
           <span className="avatar" aria-hidden="true">
             {profile.picture ? <img src={profile.picture} alt="" /> : getInitials(profile.name)}
           </span>
@@ -385,13 +402,16 @@ export default function App({ user, onLogout }) {
       </aside>
 
       <main className={`dashboard${activePage === 'resume' ? ' resume-dashboard' : ''}`} key={activePage}>
-        <ActivePage 
-          profile={profile} 
-          onSave={setProfile} 
-          candidateId={candidateId} 
-          accountEmail={user.email} 
-          onLogout={onLogout} 
+        <ActivePage
+          profile={profile}
+          onSave={setProfile}
+          candidateId={candidateId}
+          accountEmail={user.email}
+          onLogout={onLogout}
           onSelectJob={setSelectedJob}
+          applications={applications}
+          applicationsLoading={applicationsLoading}
+          notifications={notifications}
         />
       </main>
     </div>
