@@ -677,6 +677,50 @@ h2 {
   font-size: 1.25rem;
 }
 
+.profile-picture-button {
+  padding: 0;
+  border: 0;
+}
+
+.profile-picture-button:hover:not(:disabled) {
+  box-shadow: 0 0 0 4px #ffe1e7;
+}
+
+.avatar img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: inherit;
+  object-fit: cover;
+}
+
+.profile-picture-controls {
+  margin-bottom: 26px;
+}
+
+.profile-picture-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.profile-picture-actions button:focus-visible,
+.profile-picture-button:focus-visible {
+  outline: 2px solid var(--coffee);
+  outline-offset: 3px;
+}
+
+.profile-picture-button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.picture-error {
+  color: #b4233d;
+  font-size: 0.82rem;
+}
+
 .profile-nameplate p {
   margin-bottom: 0;
   color: var(--muted);

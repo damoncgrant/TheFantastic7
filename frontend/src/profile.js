@@ -13,6 +13,7 @@ export const defaultProfile = {
   bio: 'Computer science student interested in thoughtful software, accessible interfaces, and collaborative teams.',
   linkedin: '',
   website: '',
+  picture: '',
 };
 
 export function loadProfile(accountEmail, accountName) {
@@ -34,4 +35,11 @@ export function loadProfile(accountEmail, accountName) {
 export function getInitials(name) {
   const parts = name.trim().split(/\s+/);
   return (parts.length > 1 ? parts[0][0] + parts.at(-1)[0] : name.trim().slice(0, 2)).toUpperCase() || 'J';
+}
+
+export function hasProfileChanges(profile, draft) {
+  // Include new fields on profiles already open when the app was updated.
+  return Object.keys({ ...profile, ...draft }).some(
+    (key) => (draft[key] ?? '') !== (profile[key] ?? ''),
+  );
 }
