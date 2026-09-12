@@ -4,7 +4,11 @@
 import { useEffect, useState } from 'react';
 import App from './App.jsx';
 import AuthPage from './AuthPage.jsx';
+import RecruiterApp from './RecruiterApp.jsx';
 import { fetchCsrf, fetchCurrentUser, logout } from './api.js';
+
+// "employer" is the current database value for recruiter accounts.
+const recruiterRoles = new Set(['employer', 'recruiter']);
 
 export default function AppGate() {
   const [status, setStatus] = useState('loading');
@@ -44,6 +48,9 @@ export default function AppGate() {
   }
 
   if (status === 'authenticated' && user) {
+    if (recruiterRoles.has(user.role)) {
+      return <RecruiterApp user={user} onLogout={handleLogout} />;
+    }
     return <App user={user} onLogout={handleLogout} />;
   }
 

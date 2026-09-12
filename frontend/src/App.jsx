@@ -5,13 +5,9 @@ import ProfilePage from './ProfilePage';
 import { getInitials, loadProfile } from './profile';
 import ResumeBuilderPage from './resume_builder/ResumePage.jsx';
 
-// For this hackathon API, the active profile is provided explicitly.
-// Set VITE_CANDIDATE_ID in frontend/.env.local to a UserProfile primary key.
-const candidateId = import.meta.env.VITE_CANDIDATE_ID ?? 1;
-
 const roleLabels = {
   applicant: 'Applicant',
-  employer: 'Employer',
+  employer: 'Recruiter',
 };
 
 // Temporary display data. These records can be replaced with Django API data later.
@@ -369,7 +365,7 @@ export default function App({ user, onLogout }) {
       </aside>
 
       <main className={`dashboard${activePage === 'resume' ? ' resume-dashboard' : ''}`} key={activePage}>
-        <ActivePage profile={profile} onSave={setProfile} candidateId={candidateId} accountEmail={user.email} onLogout={onLogout} />
+        <ActivePage profile={profile} onSave={setProfile} candidateId={user.profile_id} accountEmail={user.email} onLogout={onLogout} />
       </main>
     </div>
   );

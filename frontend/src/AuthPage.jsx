@@ -1,6 +1,6 @@
 // Login/signup screen shown to a signed-out user. Toggles between the two
 // modes and, when signing up, asks whether the account is an applicant or
-// an employer.
+// a recruiter.
 import { useState } from 'react';
 import { login, signup } from './api.js';
 
@@ -97,7 +97,7 @@ export default function AuthPage({ onAuthenticated }) {
                     checked={role === 'employer'}
                     onChange={(event) => setRole(event.target.value)}
                   />
-                  Employer
+                  Recruiter
                 </label>
               </div>
             </fieldset>

@@ -7,11 +7,19 @@ from django.http import JsonResponse
 from django.views.decorators.csrf import ensure_csrf_cookie
 from django.views.decorators.http import require_GET, require_POST
 
+from api.identity import ensure_user_profile
+
 User = get_user_model()
 
 
 def _user_payload(user):
-    return {"email": user.email, "name": user.name, "role": user.role}
+    profile = ensure_user_profile(user)
+    return {
+        "email": user.email,
+        "name": user.name,
+        "role": user.role,
+        "profile_id": profile.id,
+    }
 
 
 def _parse_body(request):

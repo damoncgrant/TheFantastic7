@@ -1,7 +1,7 @@
 import json
 
 from django.db import transaction
-from django.db.models import Case, IntegerField, Value, When
+from django.db.models import Case, Count, IntegerField, Q, Value, When
 from django.http import HttpResponse, JsonResponse
 from django.middleware.csrf import get_token
 from django.shortcuts import get_object_or_404
@@ -9,7 +9,8 @@ from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_GET, require_http_methods, require_POST
 
 from .latex import LatexError, compile_png
-from .models import Application, Job, Message, Resume, UserProfile
+from .identity import ensure_user_profile
+from .models import Application, Company, Job, Message, Resume, UserProfile
 from .resume_builder import build_resume as build_latex_resume
 
 
@@ -33,6 +34,16 @@ def authenticated_user(request):
     if request.user.is_authenticated:
         return request.user
     return None
+
+
+def authenticated_profile(request, required_role):
+    account = authenticated_user(request)
+    if account is None:
+        return None, error("Sign in to continue.", 401)
+    profile = ensure_user_profile(account)
+    if profile.role != required_role:
+        return None, error("This action is not available for your account role.", 403)
+    return profile, None
 
 
 def serialize_resume(resume):
@@ -169,6 +180,47 @@ def serialize_application(application):
     }
 
 
+def recruiter_jobs_queryset(recruiter):
+    return Job.objects.filter(recruiter=recruiter).select_related("company").annotate(
+        applicant_count=Count(
+            "applications",
+            filter=Q(applications__candidate_decision=Application.CandidateDecision.APPLIED),
+        ),
+        new_applicant_count=Count(
+            "applications",
+            filter=Q(
+                applications__candidate_decision=Application.CandidateDecision.APPLIED,
+                applications__recruiter_decision=Application.RecruiterDecision.PENDING,
+            ),
+        ),
+    ).order_by("-created_at")
+
+
+def serialize_recruiter_job(job):
+    return {
+        **serialize_job(job),
+        "is_active": job.is_active,
+        "created_at": job.created_at.isoformat(),
+        "applicant_count": getattr(job, "applicant_count", 0),
+        "new_applicant_count": getattr(job, "new_applicant_count", 0),
+    }
+
+
+def serialize_recruiter_candidate(application):
+    return {
+        "application_id": application.id,
+        "name": application.candidate.name,
+        "headline": application.candidate.headline,
+        "bio": application.candidate.bio,
+        "skills": application.candidate.skills,
+        "job_title": application.job.title,
+        "company_name": application.job.company.name,
+        "stage": application.stage,
+        "stage_label": application.get_stage_display(),
+        "applied_at": application.applied_at.isoformat(),
+    }
+
+
 @require_GET
 def candidate_job_deck(request):
     candidate = get_user(request.GET.get("candidate_id"), UserProfile.Role.CANDIDATE)
@@ -206,6 +258,107 @@ def candidate_swipe(request, job_id):
         application.stage = Application.Stage.APPLIED
     application.save(update_fields=["candidate_decision", "stage", "updated_at"])
     return JsonResponse({"application_id": application.id, "status": application.candidate_decision, "sent_to_recruiter": data["decision"] == "right"})
+
+
+@require_GET
+def recruiter_dashboard(request):
+    recruiter, response = authenticated_profile(request, UserProfile.Role.RECRUITER)
+    if response:
+        return response
+
+    jobs = recruiter_jobs_queryset(recruiter)
+    applications = Application.objects.filter(
+        job__recruiter=recruiter,
+        candidate_decision=Application.CandidateDecision.APPLIED,
+    ).select_related("candidate", "job__company").order_by("-applied_at")
+
+    stats = {
+        "open_positions": jobs.filter(is_active=True).count(),
+        "new_applicants": applications.filter(
+            recruiter_decision=Application.RecruiterDecision.PENDING,
+        ).count(),
+        "interviews": applications.filter(stage=Application.Stage.INTERVIEW).count(),
+    }
+    return JsonResponse({
+        "stats": stats,
+        "jobs": [serialize_recruiter_job(job) for job in jobs],
+        "candidates": [serialize_recruiter_candidate(item) for item in applications],
+    })
+
+
+@require_http_methods(["GET", "POST"])
+def recruiter_jobs(request):
+    recruiter, response = authenticated_profile(request, UserProfile.Role.RECRUITER)
+    if response:
+        return response
+    if request.method == "GET":
+        jobs = recruiter_jobs_queryset(recruiter)
+        return JsonResponse({"jobs": [serialize_recruiter_job(job) for job in jobs]})
+
+    data = request_json(request)
+    if not isinstance(data, dict):
+        return error("Job data must be valid JSON.")
+
+    required_fields = {
+        "company_name": 120,
+        "title": 160,
+        "description": None,
+        "location": 120,
+        "compensation": 120,
+        "employment_type": 60,
+    }
+    values = {}
+    for field, max_length in required_fields.items():
+        value = data.get(field)
+        if not isinstance(value, str) or not value.strip():
+            return error(f"{field.replace('_', ' ').capitalize()} is required.")
+        value = value.strip()
+        if max_length and len(value) > max_length:
+            return error(f"{field.replace('_', ' ').capitalize()} is too long.")
+        values[field] = value
+
+    requirements = data.get("requirements", [])
+    if not isinstance(requirements, list) or not all(isinstance(item, str) for item in requirements):
+        return error("Requirements must be a list of text values.")
+    requirements = [item.strip() for item in requirements if item.strip()]
+    if len(requirements) > 20 or any(len(item) > 100 for item in requirements):
+        return error("Add no more than 20 requirements of 100 characters each.")
+
+    logo_url = data.get("logo_url", "")
+    website = data.get("website", "")
+    if not isinstance(logo_url, str) or not isinstance(website, str):
+        return error("Company links must be text values.")
+
+    company = Company.objects.filter(name__iexact=values["company_name"]).first()
+    if company is None:
+        company = Company.objects.create(
+            name=values["company_name"],
+            logo_url=logo_url.strip(),
+            website=website.strip(),
+        )
+    else:
+        changed_fields = []
+        if logo_url.strip() and company.logo_url != logo_url.strip():
+            company.logo_url = logo_url.strip()
+            changed_fields.append("logo_url")
+        if website.strip() and company.website != website.strip():
+            company.website = website.strip()
+            changed_fields.append("website")
+        if changed_fields:
+            company.save(update_fields=changed_fields)
+
+    job = Job.objects.create(
+        company=company,
+        recruiter=recruiter,
+        title=values["title"],
+        description=values["description"],
+        location=values["location"],
+        compensation=values["compensation"],
+        employment_type=values["employment_type"],
+        requirements=requirements,
+        is_active=True,
+    )
+    return JsonResponse({"job": serialize_recruiter_job(job)}, status=201)
 
 
 @require_GET
