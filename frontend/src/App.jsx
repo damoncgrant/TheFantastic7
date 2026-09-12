@@ -4,26 +4,12 @@ import DMPage from './DMPage.jsx';
 import ProfilePage from './ProfilePage';
 import { getInitials, loadProfile } from './profile';
 import ResumeBuilderPage from './resume_builder/ResumePage.jsx';
+import { fetchApplications } from './applications';
 
 const roleLabels = {
   applicant: 'Applicant',
   employer: 'Recruiter',
 };
-
-// Temporary display data. These records can be replaced with Django API data later.
-const applicationStats = [
-  { label: 'Applications sent', value: '12' },
-  { label: 'Interviews', value: '3' },
-  { label: 'Offers', value: '1' },
-];
-
-const applications = [
-  { company: 'Northstar Labs', role: 'Frontend Developer', date: 'Sep 10', status: 'Interview', profile: '/company-profiles/northstar-contact.png' },
-  { company: 'Cedar Systems', role: 'Software Developer', date: 'Sep 8', status: 'Applied', profile: '/company-profiles/cedar-contact.png' },
-  { company: 'Prairie Digital', role: 'UX Engineer', date: 'Sep 5', status: 'Applied', profile: '/company-profiles/prairie-contact.png' },
-  { company: 'Aurora Health', role: 'Product Designer', date: 'Aug 29', status: 'Offer', profile: '/company-profiles/aurora-contact.png' },
-  { company: 'Summit AI', role: 'Junior Developer', date: 'Aug 24', status: 'Rejected' },
-];
 
 const savedJobs = [
   { company: 'Evergreen Tech', role: 'Full Stack Developer', location: 'Edmonton, AB', type: 'Full time', profile: '/company-profiles/northstar-contact.png' },
@@ -79,7 +65,30 @@ function ApplicationRow({ application }) {
   );
 }
 
-function OverviewPage() {
+function EmptyApplications() {
+  return (
+    <section className="empty-applications">
+      <div>
+        <h2>No outgoing applications</h2>
+        <p>Swipe right on a job to send your first application.</p>
+        <a className="primary-button button-link swipe-button" href="#swipe">
+          <span className="swipe-button-copy">
+            <strong>Start swiping</strong>
+            <small>Find jobs to apply to</small>
+          </span>
+          <span className="swipe-button-icon" aria-hidden="true">→</span>
+        </a>
+      </div>
+    </section>
+  );
+}
+
+function OverviewPage({ profile, applications, applicationsLoading }) {
+  const applicationStats = [
+    { label: 'Applications sent', value: applications.length },
+    { label: 'Interviews', value: applications.filter((application) => application.stage === 'interview').length },
+    { label: 'Offers', value: applications.filter((application) => application.stage === 'offer').length },
+  ];
   return (
     <>
       <PageHeader
@@ -121,11 +130,15 @@ function OverviewPage() {
           </div>
           <a href="#applications">View all</a>
         </div>
-        <div className="application-list">
-          {applications.slice(0, 3).map((application) => (
-            <ApplicationRow application={application} key={`${application.company}-${application.role}`} />
-          ))}
-        </div>
+        {applicationsLoading ? null : applications.length === 0 ? (
+          <EmptyApplications />
+        ) : (
+          <div className="application-list">
+            {applications.slice(0, 3).map((application) => (
+              <ApplicationRow application={application} key={application.id} />
+            ))}
+          </div>
+        )}
       </section>
     </>
   );
@@ -268,6 +281,11 @@ function getPageFromHash() {
 
 export default function App() {
   const [activePage, setActivePage] = useState(getPageFromHash);
+  const [activePage, setActivePage] = useState(getPageFromHash);
+  const [profile, setProfile] = useState(() => loadProfile(user.email, user.name));
+  const [applications, setApplications] = useState([]);
+  const [applicationsLoading, setApplicationsLoading] = useState(true);
+  const ActivePage = pages[activePage];
 
   // Hash navigation keeps this prototype multi-page without adding a router.
   useEffect(() => {
@@ -275,6 +293,29 @@ export default function App() {
     window.addEventListener('hashchange', updatePage);
     return () => window.removeEventListener('hashchange', updatePage);
   }, []);
+
+  // Refetch whenever the applications list is actually visible, so swiping
+  // on a job elsewhere and coming back shows the newly created application.
+  useEffect(() => {
+    if (activePage !== 'overview' && activePage !== 'applications') return;
+
+    const controller = new AbortController();
+
+    async function loadApplications() {
+      try {
+        setApplicationsLoading(true);
+        const data = await fetchApplications(candidateId, { signal: controller.signal });
+        setApplications(data);
+      } catch (error) {
+        if (error.name !== 'AbortError') setApplications([]);
+      } finally {
+        if (!controller.signal.aborted) setApplicationsLoading(false);
+      }
+    }
+
+    loadApplications();
+    return () => controller.abort();
+  }, [activePage]);
 
   return (
     <div className="app-shell">
@@ -305,8 +346,17 @@ export default function App() {
         </div>
       </aside>
 
-      <main className="dashboard" key={activePage}>
-        {pages[activePage]}
+      <main className={`dashboard${activePage === 'resume' ? ' resume-dashboard' : ''}`} key={activePage}>
+        <ActivePage
+          profile={profile}
+          onSave={setProfile}
+          candidateId={candidateId}
+          accountEmail={user.email}
+          onLogout={onLogout}
+          applications={applications}
+          applicationsLoading={applicationsLoading}
+        />
+      </main>
       </main>
     </div>
   );
