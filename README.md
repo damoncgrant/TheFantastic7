@@ -15,8 +15,8 @@ From the repository root, start Django in one terminal:
 cd backend
 python3 -m venv .venv
 source .venv/bin/activate
-python -m pip install -r requirements.txt
-python manage.py runserver
+python3 -m pip install -r requirements.txt
+python3 manage.py runserver
 ```
 
 On Windows, use `python` instead of `python3` and activate with
@@ -38,7 +38,7 @@ React fetches `/api/hello/`; Vite proxies `/api` requests to Django at
 http://127.0.0.1:8000/api/hello/ to see the JSON directly:
 
 ```json
-{"message": "Hello from Django!"}
+{ "message": "Hello from Django!" }
 ```
 
 If the page cannot reach Django, check that the backend is running on port 8000
