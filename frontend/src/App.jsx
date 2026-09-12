@@ -310,7 +310,11 @@ export default function App({ user, onLogout }) {
     return () => window.removeEventListener('hashchange', updatePage);
   }, []);
 
+  // Refetch whenever the applications list is actually visible, so swiping
+  // on a job elsewhere and coming back shows the newly created application.
   useEffect(() => {
+    if (activePage !== 'overview' && activePage !== 'applications') return;
+
     const controller = new AbortController();
 
     async function loadApplications() {
@@ -327,7 +331,7 @@ export default function App({ user, onLogout }) {
 
     loadApplications();
     return () => controller.abort();
-  }, []);
+  }, [activePage]);
 
   return (
     <div className="app-shell">
