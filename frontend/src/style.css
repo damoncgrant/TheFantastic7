@@ -1242,6 +1242,13 @@ h2 {
 
 .candidate-swipe-details h2 { color: #352846; }
 .candidate-swipe-description { color: #51475c; line-height: 1.6; }
+.resume-choice { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 4px; padding-top: 14px; border-top: 1px solid #eee3e8; color: #765f6a; font-size: .78rem; }
+.resume-choice strong { color: #352846; }
+.resume-choice button, .resume-picker button { border: 0; color: #a33e5c; background: transparent; font: inherit; font-weight: 750; cursor: pointer; }
+.resume-picker { display: grid; gap: 5px; padding: 9px; border: 1px solid #ead7df; border-radius: 10px; background: #fff9fa; }
+.resume-picker button { padding: 7px 8px; border-radius: 7px; text-align: left; }
+.resume-picker button.selected, .resume-picker button:hover { background: #f7e4ea; }
+.resume-picker span { color: #765f6a; font-size: .75rem; }
 .candidate-swipe-empty,
 .candidate-swipe-state {
   margin: 44px auto;
