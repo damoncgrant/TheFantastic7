@@ -392,10 +392,6 @@ export default function App({ user, onLogout }) {
     return () => window.removeEventListener('hashchange', updatePage);
   }, []);
 
-  // Page overlay of job posting
-  if (selectedJob) {
-    return <JobDetail job={selectedJob} onBack={() => setSelectedJob(null)} />;
-  }
   // Refetch whenever the applications list is actually visible, so swiping
   // on a job elsewhere and coming back shows the newly created application.
   useEffect(() => {
@@ -419,6 +415,12 @@ export default function App({ user, onLogout }) {
     loadApplications();
     return () => controller.abort();
   }, [activePage, candidateId, user.role]);
+
+  // Keep this after all hooks. Returning before the effect changes hook order
+  // when a job is opened and causes React to render a blank page.
+  if (selectedJob) {
+    return <JobDetail job={selectedJob} onBack={() => setSelectedJob(null)} />;
+  }
 
   return (
     <div className="app-shell">
