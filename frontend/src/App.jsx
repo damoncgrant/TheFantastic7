@@ -1,4 +1,9 @@
 import { useEffect, useState } from 'react';
+import JobSwiper from './UserJobswiper';
+
+// For this hackathon API, the active profile is provided explicitly.
+// Set VITE_CANDIDATE_ID in frontend/.env.local to a UserProfile primary key.
+const candidateId = import.meta.env.VITE_CANDIDATE_ID ?? 1;
 
 // Temporary display data. These records can be replaced with Django API data later.
 const applicationStats = [
@@ -74,9 +79,9 @@ function OverviewPage() {
           <h2 id="swipe-heading">Find your next fit.</h2>
           <p>Review roles chosen around your skills and preferences.</p>
         </div>
-        <button className="primary-button" type="button">
+        <a className="primary-button button-link" href="#swipe">
           Start swiping <span aria-hidden="true">→</span>
-        </button>
+        </a>
       </section>
 
       <section className="stats-grid" aria-label="Application summary">
@@ -234,6 +239,7 @@ const pages = {
   applications: <ApplicationsPage />,
   resume: <ResumePage />,
   saved: <SavedJobsPage />,
+  swipe: <JobSwiper candidateId={candidateId} />,
 };
 
 function getPageFromHash() {
