@@ -8,6 +8,7 @@ import { fetchCsrf, fetchCurrentUser } from './api.js';
 
 export default function AppGate() {
   const [status, setStatus] = useState('loading');
+  const [user, setUser] = useState(null);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -15,8 +16,9 @@ export default function AppGate() {
     async function loadSession() {
       try {
         await fetchCsrf({ signal: controller.signal });
-        const { user } = await fetchCurrentUser({ signal: controller.signal });
-        setStatus(user ? 'authenticated' : 'guest');
+        const { user: currentUser } = await fetchCurrentUser({ signal: controller.signal });
+        setUser(currentUser);
+        setStatus(currentUser ? 'authenticated' : 'guest');
       } catch (error) {
         if (error.name !== 'AbortError') {
           setStatus('guest');
@@ -32,9 +34,16 @@ export default function AppGate() {
     return <p role="status">Loading…</p>;
   }
 
-  if (status === 'authenticated') {
-    return <App />;
+  if (status === 'authenticated' && user) {
+    return <App user={user} />;
   }
 
-  return <AuthPage onAuthenticated={() => setStatus('authenticated')} />;
+  return (
+    <AuthPage
+      onAuthenticated={(authedUser) => {
+        setUser(authedUser);
+        setStatus('authenticated');
+      }}
+    />
+  );
 }

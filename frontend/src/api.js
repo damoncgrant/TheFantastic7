@@ -32,10 +32,10 @@ export function fetchCurrentUser(options) {
   return request('/api/auth/me/', options);
 }
 
-export function signup({ email, password, role }) {
+export function signup({ email, password, name, role }) {
   return request('/api/auth/signup/', {
     method: 'POST',
-    body: JSON.stringify({ email, password, role }),
+    body: JSON.stringify({ email, password, name, role }),
   });
 }
 

@@ -8,6 +8,7 @@ export default function AuthPage({ onAuthenticated }) {
   const [mode, setMode] = useState('login');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [name, setName] = useState('');
   const [role, setRole] = useState('applicant');
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -20,7 +21,7 @@ export default function AuthPage({ onAuthenticated }) {
     setSubmitting(true);
     try {
       const user = isSignup
-        ? await signup({ email, password, role })
+        ? await signup({ email, password, name, role })
         : await login({ email, password });
       onAuthenticated(user);
     } catch (err) {
@@ -37,6 +38,20 @@ export default function AuthPage({ onAuthenticated }) {
         <h1>{isSignup ? 'Join jobbler' : 'Log in to jobbler'}</h1>
 
         <form className="auth-form" onSubmit={handleSubmit}>
+          {isSignup && (
+            <label>
+              Full name
+              <input
+                type="text"
+                value={name}
+                onChange={(event) => setName(event.target.value)}
+                required
+                autoComplete="name"
+                maxLength={150}
+              />
+            </label>
+          )}
+
           <label>
             Email
             <input

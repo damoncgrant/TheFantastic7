@@ -30,6 +30,7 @@ class User(AbstractUser):
 
     username = None
     email = models.EmailField(unique=True)
+    name = models.CharField(max_length=150, blank=True, default="")
     role = models.CharField(max_length=20, choices=Role.choices)
 
     USERNAME_FIELD = "email"

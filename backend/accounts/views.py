@@ -11,7 +11,7 @@ User = get_user_model()
 
 
 def _user_payload(user):
-    return {"email": user.email, "role": user.role}
+    return {"email": user.email, "name": user.name, "role": user.role}
 
 
 def _parse_body(request):
@@ -32,10 +32,13 @@ def signup(request):
     data = _parse_body(request)
     email = (data.get("email") or "").strip().lower()
     password = data.get("password") or ""
+    name = (data.get("name") or "").strip()
     role = data.get("role") or ""
 
     if not email or not password:
         return JsonResponse({"error": "Email and password are required."}, status=400)
+    if not name:
+        return JsonResponse({"error": "Name is required."}, status=400)
     if role not in User.Role.values:
         return JsonResponse({"error": "Select whether you're an applicant or an employer."}, status=400)
     if len(password) < 8:
@@ -43,7 +46,7 @@ def signup(request):
     if User.objects.filter(email=email).exists():
         return JsonResponse({"error": "An account with this email already exists."}, status=400)
 
-    user = User.objects.create_user(email=email, password=password, role=role)
+    user = User.objects.create_user(email=email, password=password, name=name, role=role)
     login(request, user)
     return JsonResponse(_user_payload(user), status=201)
 
