@@ -359,7 +359,9 @@ export default function App({ user }) {
         </nav>
 
         <a className={`profile ${activePage === 'profile' ? 'active' : ''}`} href="#profile" aria-label="Edit personal profile" aria-current={activePage === 'profile' ? 'page' : undefined}>
-          <span className="avatar" aria-hidden="true">{getInitials(profile.name)}</span>
+          <span className="avatar" aria-hidden="true">
+            {profile.picture ? <img src={profile.picture} alt="" /> : getInitials(profile.name)}
+          </span>
           <span>
             <strong>{profile.name}</strong>
             <small>{roleLabels[user.role] ?? user.role}</small>

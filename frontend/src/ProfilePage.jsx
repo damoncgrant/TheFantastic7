@@ -1,5 +1,6 @@
-import { useState } from 'react';
-import { getInitials, getProfileStorageKey } from './profile';
+import { useEffect, useRef, useState } from 'react';
+import { getInitials, getProfileStorageKey, hasProfileChanges } from './profile';
+import { prepareProfilePicture } from './profilePicture';
 
 const personalFields = [
   { name: 'name', label: 'Full name', autoComplete: 'name', required: true, maxLength: 100 },
@@ -27,7 +28,41 @@ function ProfileField({ field, value, onChange }) {
 export default function ProfilePage({ profile, onSave, accountEmail }) {
   const [draft, setDraft] = useState(() => ({ ...profile }));
   const [feedback, setFeedback] = useState(null);
-  const hasChanges = Object.keys(profile).some((key) => draft[key] !== profile[key]);
+  const [pictureError, setPictureError] = useState('');
+  const [processingPicture, setProcessingPicture] = useState(false);
+  const pictureInput = useRef(null);
+  const pictureRequest = useRef(0);
+  const hasChanges = hasProfileChanges(profile, draft);
+
+  useEffect(() => () => { pictureRequest.current += 1; }, []);
+
+  async function choosePicture(event) {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file) return;
+    const request = ++pictureRequest.current;
+    setPictureError('');
+    setFeedback(null);
+    setProcessingPicture(true);
+    try {
+      const picture = await prepareProfilePicture(file);
+      if (request === pictureRequest.current) {
+        setDraft((current) => ({ ...current, picture }));
+      }
+    } catch (error) {
+      if (request === pictureRequest.current) setPictureError(error.message);
+    } finally {
+      if (request === pictureRequest.current) setProcessingPicture(false);
+    }
+  }
+
+  function removePicture() {
+    pictureRequest.current += 1;
+    setProcessingPicture(false);
+    setPictureError('');
+    setFeedback(null);
+    setDraft((current) => ({ ...current, picture: '' }));
+  }
 
   function updateField(event) {
     const { name, value } = event.target;
@@ -37,6 +72,7 @@ export default function ProfilePage({ profile, onSave, accountEmail }) {
 
   function saveProfile(event) {
     event.preventDefault();
+    if (processingPicture) return;
     const nextProfile = Object.fromEntries(Object.entries(draft).map(([key, value]) => [key, value.trim()]));
     if (!nextProfile.name) {
       setFeedback({ error: true, message: 'Please enter your full name.' });
@@ -55,6 +91,9 @@ export default function ProfilePage({ profile, onSave, accountEmail }) {
 
   function resetProfile(event) {
     event.preventDefault();
+    pictureRequest.current += 1;
+    setProcessingPicture(false);
+    setPictureError('');
     setDraft({ ...profile });
     setFeedback({ message: 'Unsaved changes discarded.' });
   }
@@ -72,12 +111,27 @@ export default function ProfilePage({ profile, onSave, accountEmail }) {
       <form className="profile-editor" onSubmit={saveProfile} onReset={resetProfile}>
         <section className="content-panel page-panel" aria-labelledby="personal-details-heading">
           <div className="profile-nameplate">
-            <span className="avatar profile-avatar" aria-hidden="true">{getInitials(draft.name)}</span>
+            <button className="avatar profile-avatar profile-picture-button" type="button"
+              onClick={() => pictureInput.current.click()} disabled={processingPicture}
+              aria-label={draft.picture ? 'Change profile picture' : 'Choose profile picture'}
+              aria-describedby="picture-hint" title="Choose profile picture">
+              {draft.picture ? <img src={draft.picture} alt="" /> : getInitials(draft.name)}
+            </button>
             <div>
               <h2>{draft.name.trim() || 'Your name'}</h2>
               <p>{draft.headline.trim() || 'Your professional headline'}</p>
             </div>
             <span className="completion">Job seeker</span>
+          </div>
+          <div className="profile-picture-controls">
+            <input ref={pictureInput} type="file" accept="image/jpeg,image/png,image/webp"
+              aria-label="Choose profile picture" onChange={choosePicture} hidden />
+            {draft.picture && <div className="profile-picture-actions">
+              <button className="secondary-button" type="button" onClick={removePicture}>Remove picture</button>
+            </div>}
+            <p className="field-hint" id="picture-hint">Click your profile picture to choose a JPG, PNG, or WebP, up to 5 MB. Your picture will be cropped to a square. Select Save changes to keep it.</p>
+            <p className="field-hint" role="status">{processingPicture ? 'Preparing your picture…' : ''}</p>
+            {pictureError && <p className="picture-error" role="alert">{pictureError}</p>}
           </div>
           <div className="section-heading">
             <div>
@@ -115,8 +169,8 @@ export default function ProfilePage({ profile, onSave, accountEmail }) {
             </p>
           </div>
           <div className="profile-actions">
-            <button className="secondary-button" type="reset" disabled={!hasChanges}>Cancel</button>
-            <button className="primary-button" type="submit" disabled={!hasChanges}>Save changes</button>
+            <button className="secondary-button" type="reset" disabled={!hasChanges && !processingPicture}>Cancel</button>
+            <button className="primary-button" type="submit" disabled={!hasChanges || processingPicture}>Save changes</button>
           </div>
         </div>
       </form>
