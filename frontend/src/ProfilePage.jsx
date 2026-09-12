@@ -25,7 +25,7 @@ function ProfileField({ field, value, onChange }) {
   );
 }
 
-export default function ProfilePage({ profile, onSave, accountEmail }) {
+export default function ProfilePage({ profile, onSave, accountEmail, onLogout }) {
   const [draft, setDraft] = useState(() => ({ ...profile }));
   const [feedback, setFeedback] = useState(null);
   const [pictureError, setPictureError] = useState('');
@@ -106,6 +106,7 @@ export default function ProfilePage({ profile, onSave, accountEmail }) {
           <h1>Personal profile</h1>
           <p>A little about you. A stronger start to your next opportunity.</p>
         </div>
+        <button className="secondary-button" type="button" onClick={onLogout}>Log out</button>
       </header>
 
       <form className="profile-editor" onSubmit={saveProfile} onReset={resetProfile}>
