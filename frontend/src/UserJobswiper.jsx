@@ -14,7 +14,6 @@ export default function JobSwiper({ candidateId }) {
   const [error, setError] = useState('');
   const [resumes, setResumes] = useState([]);
   const [selectedResumeId, setSelectedResumeId] = useState(null);
-  const [showResumePicker, setShowResumePicker] = useState(false);
   const [dragX, setDragX] = useState(0);
   const [exiting, setExiting] = useState(null);
   const dragging = useRef(false);
@@ -59,9 +58,12 @@ export default function JobSwiper({ candidateId }) {
       await apiRequest(`/api/jobs/${current.id}/swipe/`, { method: 'POST', body: JSON.stringify({ candidate_id: candidateId, decision: direction, resume_id: direction === 'right' ? selectedResumeId : undefined }) });
       await new Promise((resolve) => window.setTimeout(resolve, 220));
       setJobs((items) => direction === 'left' ? [...items.slice(1), items[0]] : items.slice(1));
+      if (direction === 'right') {
+        setSelectedResumeId(resumes.find((resume) => resume.isDefault)?.id ?? resumes[0]?.id ?? null);
+      }
       setDragX(0); setExiting(null);
     } catch (swipeError) { setDragX(0); setExiting(null); setError(swipeError.message || 'Could not save swipe'); }
-  }, [candidateId, current, exiting, selectedResumeId]);
+  }, [candidateId, current, exiting, resumes, selectedResumeId]);
 
   function beginDrag(event) { dragging.current = true; startX.current = event.clientX; event.currentTarget.setPointerCapture?.(event.pointerId); }
   function moveDrag(event) { if (dragging.current && !exiting) setDragX(event.clientX - startX.current); }
@@ -86,15 +88,12 @@ export default function JobSwiper({ candidateId }) {
           <p className="candidate-swipe-description">{current.description}</p>
           <div className="recruiter-swipe-skills" aria-label="Job details">{current.tags.slice(0, 5).map((tag) => <span key={tag}>{tag}</span>)}</div>
           <div className="resume-choice">
-            <span>{selectedResume ? <>Applying with <strong>{selectedResume.name}</strong></> : <strong>No resume selected</strong>}</span>
-            {resumes.length > 1 && <button type="button" onClick={() => setShowResumePicker((open) => !open)}>Change</button>}
+            {resumes.length > 1 ? <label><span>Applying with</span>
+              <select value={selectedResumeId ?? ''} onPointerDown={(event) => event.stopPropagation()} onChange={(event) => setSelectedResumeId(Number(event.target.value))}>
+                {resumes.map((resume) => <option value={resume.id} key={resume.id}>{resume.name}{resume.isDefault ? ' (Default)' : ''}</option>)}
+              </select>
+            </label> : <span>{selectedResume ? <>Applying with <strong>{selectedResume.name}</strong></> : <strong>No resume selected</strong>}</span>}
           </div>
-          {showResumePicker && <div className="resume-picker" role="listbox" aria-label="Choose resume">
-            {resumes.map((resume) => <button className={resume.id === selectedResumeId ? 'selected' : ''} type="button" key={resume.id} onClick={() => { setSelectedResumeId(resume.id); setShowResumePicker(false); }}>
-              {resume.name}{resume.isDefault ? ' · Default' : ''}
-            </button>)}
-            {!resumes.length && <span>No resumes found. Create one from the Resume page.</span>}
-          </div>}
         </div>
       </article>
       <div className="recruiter-swipe-actions">
