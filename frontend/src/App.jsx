@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react';
 import JobSwiper from './UserJobswiper';
+import ProfilePage from './ProfilePage';
+import { getInitials, loadProfile } from './profile';
 
 // For this hackathon API, the active profile is provided explicitly.
 // Set VITE_CANDIDATE_ID in frontend/.env.local to a UserProfile primary key.
@@ -63,12 +65,12 @@ function ApplicationRow({ application }) {
   );
 }
 
-function OverviewPage() {
+function OverviewPage({ profile }) {
   return (
     <>
       <PageHeader
         eyebrow="Your job search, organized"
-        title="Good morning, Chud."
+        title={`Good morning, ${profile.name}.`}
         description="Keep moving toward work that fits your life."
         action={<a className="secondary-button button-link" href="#resume">Edit resume</a>}
       />
@@ -145,7 +147,7 @@ function ApplicationsPage() {
   );
 }
 
-function ResumePage() {
+function ResumePage({ profile }) {
   return (
     <>
       <PageHeader
@@ -160,15 +162,15 @@ function ResumePage() {
           <div className="resume-nameplate">
             <div>
               <p className="eyebrow">Master resume</p>
-              <h2>Chud</h2>
-              <span>Software Developer • Edmonton, AB</span>
+              <h2>{profile.name}</h2>
+              <span>{[profile.headline, profile.location].filter(Boolean).join(' • ')}</span>
             </div>
             <span className="completion">85% complete</span>
           </div>
 
           <div className="resume-section">
             <h3>Summary</h3>
-            <p>Computer science student interested in thoughtful software, accessible interfaces, and collaborative teams.</p>
+            <p>{profile.bio}</p>
           </div>
           <div className="resume-section">
             <h3>Experience</h3>
@@ -235,20 +237,23 @@ function SavedJobsPage() {
 }
 
 const pages = {
-  overview: <OverviewPage />,
-  applications: <ApplicationsPage />,
-  resume: <ResumePage />,
-  saved: <SavedJobsPage />,
-  swipe: <JobSwiper candidateId={candidateId} />,
+  overview: OverviewPage,
+  applications: ApplicationsPage,
+  resume: ResumePage,
+  saved: SavedJobsPage,
+  swipe: JobSwiper,
+  profile: ProfilePage,
 };
 
 function getPageFromHash() {
   const page = window.location.hash.slice(1);
-  return pages[page] ? page : 'overview';
+  return Object.hasOwn(pages, page) ? page : 'overview';
 }
 
 export default function App() {
   const [activePage, setActivePage] = useState(getPageFromHash);
+  const [profile, setProfile] = useState(loadProfile);
+  const ActivePage = pages[activePage];
 
   // Hash navigation keeps this prototype multi-page without adding a router.
   useEffect(() => {
@@ -270,6 +275,7 @@ export default function App() {
             <a
               className={`nav-link ${activePage === item.id ? 'active' : ''}`}
               href={`#${item.id}`}
+              aria-current={activePage === item.id ? 'page' : undefined}
               key={item.id}
             >
               {item.label}
@@ -277,17 +283,17 @@ export default function App() {
           ))}
         </nav>
 
-        <div className="profile">
-          <span className="avatar" aria-hidden="true">CH</span>
+        <a className={`profile ${activePage === 'profile' ? 'active' : ''}`} href="#profile" aria-label="Edit personal profile" aria-current={activePage === 'profile' ? 'page' : undefined}>
+          <span className="avatar" aria-hidden="true">{getInitials(profile.name)}</span>
           <span>
-            <strong>Chud</strong>
+            <strong>{profile.name}</strong>
             <small>Job seeker</small>
           </span>
-        </div>
+        </a>
       </aside>
 
       <main className="dashboard" key={activePage}>
-        {pages[activePage]}
+        <ActivePage profile={profile} onSave={setProfile} candidateId={candidateId} />
       </main>
     </div>
   );
