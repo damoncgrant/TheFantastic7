@@ -60,3 +60,10 @@ export function createRecruiterJob(job) {
     body: JSON.stringify(job),
   });
 }
+
+export function reviewCandidateApplication(applicationId, decision) {
+  return apiRequest(`/api/applications/${applicationId}/swipe/`, {
+    method: 'POST',
+    body: JSON.stringify({ decision }),
+  });
+}
