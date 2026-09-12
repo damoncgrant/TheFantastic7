@@ -1,4 +1,4 @@
-import React, { useState, useRef, useCallback } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import ImageDescription from "./Components/ImageDescription";
 import TextDescription from "./Components/TextDescription";
 import SwipeButton from "./Components/SwipeButton";
@@ -12,48 +12,24 @@ import SwipeButton from "./Components/SwipeButton";
  * reject / accept decisions, and the card itself is draggable too.
  */
 
-const JOBS = [
-  {
-    id: 1,
-    company: "Northwind Robotics",
-    location: "Edmonton, AB · On-site",
-    title: "Firmware Engineer, Intern",
-    imageType: "logo",
-    initials: "NR",
-    accent: "#3F6B4F",
-    description:
-      "Northwind builds warehouse robots that don't trip over their own cables. You'd work on the motor-control firmware, alongside two senior engineers who will absolutely make fun of your variable names.",
-    tags: ["C++", "Embedded", "4 months"],
-  },
-  {
-    id: 2,
-    company: "Resume: Priya Shah",
-    location: "Applying for: Frontend Developer",
-    title: "3rd-year Computing Science",
-    imageType: "resume",
-    initials: "PS",
-    accent: "#8C4432",
-    description:
-      "Built and shipped two React side projects, TA'd intro programming for a semester, and led a hackathon team of four to a top-3 finish. Looking for a summer internship on a small product team.",
-    tags: ["React", "TypeScript", "Available May"],
-  },
-  {
-    id: 3,
-    company: "Ledgerline",
-    location: "Remote · Canada",
-    title: "Backend Developer",
-    imageType: "logo",
-    initials: "LL",
-    accent: "#3F6B4F",
-    description:
-      "Ledgerline is a small accounting startup rebuilding invoicing from scratch. You'd own the reconciliation service end-to-end. Slow-paced, well-documented codebase, no on-call.",
-    tags: ["Python", "Postgres", "Remote"],
-  },
-];
+const ACCENT_COLORS = ["#3F6B4F", "#8C4432", "#4B6283", "#7B5B8D"];
 
+function toCard(job, index) {
+  const companyName = job.company.name;
+  return {
+    ...job,
+    company: companyName,
+    imageType: "logo",
+    initials: companyName.split(/\s+/).map((word) => word[0]).join("").slice(0, 2).toUpperCase(),
+    accent: ACCENT_COLORS[index % ACCENT_COLORS.length],
+    tags: [job.employment_type, job.compensation, ...job.requirements],
+  };
+}
 
-export default function JobSwiper() {
-  const [jobs, setJobs] = useState(JOBS);
+export default function JobSwiper({ candidateId }) {
+  const [jobs, setJobs] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
   const [dragX, setDragX] = useState(0);
   const [exiting, setExiting] = useState(null); // "left" | "right" | null
   const dragging = useRef(false);
@@ -61,14 +37,50 @@ export default function JobSwiper() {
 
   const current = jobs[0];
 
-  const commitSwipe = useCallback((direction) => {
+  useEffect(() => {
+    const controller = new AbortController();
+
+    async function loadDeck() {
+      try {
+        setLoading(true);
+        setError("");
+        const response = await fetch(`/api/jobs/deck/?candidate_id=${encodeURIComponent(candidateId)}`, { signal: controller.signal });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || "Could not load jobs");
+        setJobs(data.jobs.map(toCard));
+      } catch (loadError) {
+        if (loadError.name !== "AbortError") setError(loadError.message || "Could not load jobs");
+      } finally {
+        if (!controller.signal.aborted) setLoading(false);
+      }
+    }
+
+    loadDeck();
+    return () => controller.abort();
+  }, [candidateId]);
+
+  const commitSwipe = useCallback(async (direction) => {
+    if (!current || exiting) return;
     setExiting(direction);
-    setTimeout(() => {
-      setJobs((prev) => prev.slice(1));
+    try {
+      const response = await fetch(`/api/jobs/${current.id}/swipe/`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ candidate_id: candidateId, decision: direction }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "Could not save swipe");
+      setTimeout(() => {
+        setJobs((previous) => direction === "left" ? [...previous.slice(1), previous[0]] : previous.slice(1));
+        setExiting(null);
+        setDragX(0);
+      }, 220);
+    } catch (swipeError) {
       setExiting(null);
       setDragX(0);
-    }, 220);
-  }, []);
+      setError(swipeError.message || "Could not save swipe");
+    }
+  }, [candidateId, current, exiting]);
 
   const onPointerDown = (e) => {
     dragging.current = true;
@@ -104,7 +116,9 @@ export default function JobSwiper() {
         fontFamily: "Georgia, serif",
       }}
     >
-      {current ? (
+      {loading ? (
+        <div style={{ color: "#F4EFE2", fontSize: 15 }}>Loading jobs…</div>
+      ) : current ? (
         <>
           <div
             onPointerDown={onPointerDown}
@@ -134,6 +148,7 @@ export default function JobSwiper() {
       ) : (
         <div style={{ color: "#8A8578", fontSize: 15 }}>No more listings — check back later.</div>
       )}
+      {error && <p role="alert" style={{ position: "fixed", bottom: 24, color: "#F4EFE2" }}>{error}</p>}
     </div>
   );
 }
