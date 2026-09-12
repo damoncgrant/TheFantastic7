@@ -24,12 +24,12 @@ async function request(path, options = {}) {
   return data;
 }
 
-export function fetchCsrf() {
-  return request('/api/auth/csrf/');
+export function fetchCsrf(options) {
+  return request('/api/auth/csrf/', options);
 }
 
-export function fetchCurrentUser() {
-  return request('/api/auth/me/');
+export function fetchCurrentUser(options) {
+  return request('/api/auth/me/', options);
 }
 
 export function signup({ email, password, role }) {

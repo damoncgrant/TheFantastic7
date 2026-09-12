@@ -31,75 +31,85 @@ export default function AuthPage({ onAuthenticated }) {
   }
 
   return (
-    <main>
-      <h1>{isSignup ? 'Create an account' : 'Log in'}</h1>
+    <div className="auth-shell">
+      <div className="auth-card content-panel">
+        <p className="eyebrow">{isSignup ? 'Create your account' : 'Welcome back'}</p>
+        <h1>{isSignup ? 'Join jobbler' : 'Log in to jobbler'}</h1>
 
-      <form onSubmit={handleSubmit}>
-        <label>
-          Email
-          <input
-            type="email"
-            value={email}
-            onChange={(event) => setEmail(event.target.value)}
-            required
-            autoComplete="email"
-          />
-        </label>
+        <form className="auth-form" onSubmit={handleSubmit}>
+          <label>
+            Email
+            <input
+              type="email"
+              value={email}
+              onChange={(event) => setEmail(event.target.value)}
+              required
+              autoComplete="email"
+            />
+          </label>
 
-        <label>
-          Password
-          <input
-            type="password"
-            value={password}
-            onChange={(event) => setPassword(event.target.value)}
-            required
-            minLength={8}
-            autoComplete={isSignup ? 'new-password' : 'current-password'}
-          />
-        </label>
+          <label>
+            Password
+            <input
+              type="password"
+              value={password}
+              onChange={(event) => setPassword(event.target.value)}
+              required
+              minLength={8}
+              autoComplete={isSignup ? 'new-password' : 'current-password'}
+            />
+          </label>
 
-        {isSignup && (
-          <fieldset>
-            <legend>I am an...</legend>
-            <label>
-              <input
-                type="radio"
-                name="role"
-                value="applicant"
-                checked={role === 'applicant'}
-                onChange={(event) => setRole(event.target.value)}
-              />
-              Applicant
-            </label>
-            <label>
-              <input
-                type="radio"
-                name="role"
-                value="employer"
-                checked={role === 'employer'}
-                onChange={(event) => setRole(event.target.value)}
-              />
-              Employer
-            </label>
-          </fieldset>
-        )}
+          {isSignup && (
+            <fieldset className="role-fieldset">
+              <legend>I am an...</legend>
+              <div className="role-options">
+                <label className="role-option">
+                  <input
+                    type="radio"
+                    name="role"
+                    value="applicant"
+                    checked={role === 'applicant'}
+                    onChange={(event) => setRole(event.target.value)}
+                  />
+                  Applicant
+                </label>
+                <label className="role-option">
+                  <input
+                    type="radio"
+                    name="role"
+                    value="employer"
+                    checked={role === 'employer'}
+                    onChange={(event) => setRole(event.target.value)}
+                  />
+                  Employer
+                </label>
+              </div>
+            </fieldset>
+          )}
 
-        {error && <p role="alert">{error}</p>}
+          {error && (
+            <p className="form-error" role="alert">
+              {error}
+            </p>
+          )}
 
-        <button type="submit" disabled={submitting}>
-          {isSignup ? 'Sign up' : 'Log in'}
+          <button className="primary-button" type="submit" disabled={submitting}>
+            {isSignup ? 'Sign up' : 'Log in'}
+          </button>
+        </form>
+
+        <button
+          className="link-button"
+          type="button"
+          onClick={() => {
+            setError('');
+            setMode(isSignup ? 'login' : 'signup');
+          }}
+        >
+          {isSignup ? 'Already have an account? Log in' : "Don't have an account? Sign up"}
         </button>
-      </form>
-
-      <button
-        type="button"
-        onClick={() => {
-          setError('');
-          setMode(isSignup ? 'login' : 'signup');
-        }}
-      >
-        {isSignup ? 'Already have an account? Log in' : "Don't have an account? Sign up"}
-      </button>
-    </main>
+      </div>
+    </div>
   );
 }
