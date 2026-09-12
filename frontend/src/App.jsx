@@ -32,7 +32,7 @@ const savedJobs = [
 const navigation = [
   { id: 'overview', label: 'Overview' },
   { id: 'applications', label: 'Applications' },
-  { id: 'messages', label: 'DMs'},
+  { id: 'messages', label: 'Messages'},
   { id: 'resume', label: 'Resume' },
   { id: 'saved', label: 'Saved jobs' },
 ];
