@@ -1636,13 +1636,23 @@ h2 {
   object-fit: contain;
 }
 
-.recruiter-match-messages-button {
+.recruiter-shell .recruiter-match-messages-button {
   min-height: 88px;
   max-width: 100%;
   padding: 0 36px;
   font-size: 2em;
   white-space: normal;
+  color: #ffffff;
+  background: linear-gradient(100deg, var(--recruiter-teal), var(--recruiter-blue));
+  box-shadow: 0 10px 22px rgb(18 109 153 / 22%);
   pointer-events: auto;
+}
+
+.recruiter-shell .recruiter-match-messages-button:hover,
+.recruiter-shell .recruiter-match-messages-button:focus-visible {
+  box-shadow: 0 12px 26px rgb(18 109 153 / 32%);
+  outline: 3px solid var(--recruiter-teal-light);
+  outline-offset: 3px;
 }
 
 @keyframes recruiter-match-fade-in {
