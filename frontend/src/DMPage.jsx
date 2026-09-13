@@ -1,5 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
-import { fetchConversations, fetchMessages, sendMessage as sendMessageRequest } from './api.js';
+import {
+  actionRecruiterApplication,
+  fetchConversations,
+  fetchMessages,
+  sendMessage as sendMessageRequest,
+} from './api.js';
 
 const messagePollInterval = 3000;
 
@@ -51,6 +56,9 @@ export default function DMPage({ user, notifications }) {
   const [sending, setSending] = useState(false);
   const [error, setError] = useState('');
   const [showCelebration, setShowCelebration] = useState(false);
+  const [applicationActionLoading, setApplicationActionLoading] = useState(false);
+  const [showRejectForm, setShowRejectForm] = useState(false);
+  const [rejectionReason, setRejectionReason] = useState('');
   const lastReadMessageId = useRef(null);
 
   const activeConversation = conversations.find((conversation) => conversation.application_id === activeConversationId);
@@ -167,6 +175,38 @@ export default function DMPage({ user, notifications }) {
     }
   }
 
+  async function updateApplication(action) {
+    if (!activeConversation || applicationActionLoading) return;
+    setApplicationActionLoading(true);
+    setError('');
+    try {
+      const updated = await actionRecruiterApplication(
+        activeConversation.application_id,
+        action,
+        rejectionReason,
+      );
+      if (action === 'reject') {
+        setConversations((current) => current.filter(
+          (conversation) => conversation.application_id !== activeConversation.application_id,
+        ));
+        setActiveConversationId(null);
+        setMessages([]);
+        setShowRejectForm(false);
+        setRejectionReason('');
+      } else {
+        setConversations((current) => current.map((conversation) => (
+          conversation.application_id === activeConversation.application_id
+            ? { ...conversation, stage: updated.stage, stage_label: updated.stage_label }
+            : conversation
+        )));
+      }
+    } catch (actionError) {
+      setError(actionError.message || 'Could not update this application.');
+    } finally {
+      setApplicationActionLoading(false);
+    }
+  }
+
   const audienceLabel = isRecruiter ? 'Matched candidates' : 'Matched employers';
   return (
     <>
@@ -190,13 +230,52 @@ export default function DMPage({ user, notifications }) {
           </div>
         )}
       </section>
-      {activeConversation && <section className="content-panel page-panel conversation-thread" aria-live="polite" aria-labelledby="thread-heading">
+      {activeConversation && <section className="content-panel page-panel conversation-thread" aria-labelledby="thread-heading">
         {showCelebration && <MatchCelebration onDismiss={() => setShowCelebration(false)} />}
-        <div className="section-heading">
+        <div className="section-heading conversation-thread-heading">
           <div><p className="eyebrow">{isRecruiter ? 'Matched candidate' : 'Matched employer'}</p><h2 id="thread-heading">{activeConversation.participant.name}</h2><p>{activeConversation.role} · {activeConversation.company}</p></div>
-          <span className="thread-match-badge" title="This application is matched">💼 <span>matched</span> 🤝</span>
+          <div className="conversation-thread-side">
+            <span className="thread-match-badge" title="This application is matched">💼 <span>matched</span> 🤝</span>
+            {isRecruiter && (
+              <div className="conversation-application-buttons" aria-label="Application decision">
+                {activeConversation.stage === 'interview' && (
+                  <button className="recruiter-offer-button compact-button conversation-action-button" type="button" onClick={() => updateApplication('offer')} disabled={applicationActionLoading}>
+                    {applicationActionLoading ? 'Updating…' : 'Send offer'}
+                  </button>
+                )}
+                <button className="recruiter-reject-button compact-button conversation-action-button" type="button" onClick={() => setShowRejectForm((open) => !open)} disabled={applicationActionLoading}>
+                  Reject
+                </button>
+              </div>
+            )}
+          </div>
         </div>
-        <div className="message-thread">
+        {isRecruiter && showRejectForm && (
+          <div className="conversation-application-actions" aria-label="Application decision">
+            <div className="conversation-rejection-form">
+              <label>
+                Do you want to add a reason for rejection?
+                <textarea
+                  value={rejectionReason}
+                  onChange={(event) => setRejectionReason(event.target.value)}
+                  maxLength="1000"
+                  placeholder="Rejection reason"
+                />
+              </label>
+              <button className="recruiter-confirm-button conversation-action-button rejection-enter-button" type="button" onClick={() => updateApplication('reject')} disabled={applicationActionLoading}>
+                {rejectionReason.trim() ? 'Enter' : 'Enter without a reason'}
+              </button>
+              <button className="secondary-button conversation-action-button rejection-cancel-button" type="button" onClick={() => { setShowRejectForm(false); setRejectionReason(''); }} disabled={applicationActionLoading}>Cancel</button>
+            </div>
+          </div>
+        )}
+        <div
+          className="message-thread"
+          role="log"
+          aria-live="polite"
+          aria-relevant="additions text"
+          aria-label={`Conversation with ${activeConversation.participant.name}`}
+        >
           {threadLoading ? <p role="status">Loading conversation…</p> : messages.map((message, index) => (
             <div className={`message-bubble ${String(message.sender_id) === String(currentProfileId) ? 'me' : 'employer'} ${index === 0 && messages.length === 1 ? 'match-message' : ''}`} key={message.id}>
               {index === 0 && messages.length === 1 && <span className="automated-label">✨ New match</span>}

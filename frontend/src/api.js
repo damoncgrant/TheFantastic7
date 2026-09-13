@@ -106,10 +106,17 @@ export function removeCandidateProfilePhoto() {
   return apiRequest('/api/candidate/profile/photo/', { method: 'DELETE' });
 }
 
-export function reviewCandidateApplication(applicationId, decision) {
+export function reviewCandidateApplication(applicationId, decision, rejectionReason = '') {
   return apiRequest(`/api/applications/${applicationId}/swipe/`, {
     method: 'POST',
-    body: JSON.stringify({ decision }),
+    body: JSON.stringify({ decision, rejection_reason: rejectionReason }),
+  });
+}
+
+export function actionRecruiterApplication(applicationId, action, rejectionReason = '') {
+  return apiRequest(`/api/applications/${applicationId}/action/`, {
+    method: 'POST',
+    body: JSON.stringify({ action, rejection_reason: rejectionReason }),
   });
 }
 

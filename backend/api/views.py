@@ -253,6 +253,7 @@ def serialize_application(application):
         "stage_label": application.get_stage_display(),
         "is_match": application.is_match,
         "recruiter_decision": application.recruiter_decision,
+        "rejection_reason": application.rejection_reason,
         "applied_at": application.applied_at.isoformat(),
         "resume": {"id": application.resume_id, "name": application.resume.name} if application.resume_id else None,
         "job": serialize_job(application.job, application),
@@ -339,6 +340,7 @@ def serialize_recruiter_candidate(application):
         "job_title": application.job.title,
         "company_name": application.job.company.name,
         "recruiter_decision": application.recruiter_decision,
+        "rejection_reason": application.rejection_reason,
         "stage": application.stage,
         "stage_label": application.get_stage_display(),
         "applied_at": application.applied_at.isoformat(),
@@ -699,9 +701,11 @@ def recruiter_swipe(request, application_id):
     app = get_object_or_404(Application.objects.select_related("job"), pk=application_id, job__recruiter=recruiter)
     if app.candidate_decision != "applied" or app.recruiter_decision != "pending":
         return error("This application cannot be reviewed", 409)
-    app.recruiter_decision = "selected" if data["decision"] == "right" else "rejected"
-    app.stage = Application.Stage.OFFER if data["decision"] == "right" else Application.Stage.REJECTED
-    app.save(update_fields=["recruiter_decision", "stage", "updated_at"])
+    is_interview = data["decision"] == "right"
+    app.recruiter_decision = "selected" if is_interview else "rejected"
+    app.stage = Application.Stage.INTERVIEW if is_interview else Application.Stage.REJECTED
+    app.rejection_reason = "" if is_interview else str(data.get("rejection_reason") or "").strip()[:1000]
+    app.save(update_fields=["recruiter_decision", "stage", "rejection_reason", "updated_at"])
     if app.is_match:
         create_message(
             application=app,
@@ -717,6 +721,60 @@ def recruiter_swipe(request, application_id):
         "stage": app.stage,
         "stage_label": app.get_stage_display(),
         "messaging_unlocked": app.is_match,
+    })
+
+
+@require_POST
+def recruiter_application_action(request, application_id):
+    """Send an offer from an interview, or reject/unmatch an application."""
+    data = request_json(request)
+    if data is None:
+        return error("Body must be valid JSON")
+    recruiter, response = authenticated_profile(request, UserProfile.Role.RECRUITER)
+    if response:
+        return response
+
+    action = data.get("action")
+    if action not in {"offer", "reject"}:
+        return error("action must be 'offer' or 'reject'")
+    app = get_object_or_404(
+        Application.objects.select_related("job__company"),
+        pk=application_id,
+        job__recruiter=recruiter,
+        candidate_decision=Application.CandidateDecision.APPLIED,
+    )
+
+    if action == "offer":
+        if (
+            app.recruiter_decision != Application.RecruiterDecision.SELECTED
+            or app.stage != Application.Stage.INTERVIEW
+        ):
+            return error("Offers can only be sent to matched candidates in the interview stage.", 409)
+        app.stage = Application.Stage.OFFER
+        app.rejection_reason = ""
+        app.save(update_fields=["stage", "rejection_reason", "updated_at"])
+        create_message(
+            application=app,
+            sender=recruiter,
+            body=(
+                f"Congratulations! {app.job.company.name} would like to extend you an "
+                f"offer for the {app.job.title} role."
+            ),
+        )
+    else:
+        if app.stage == Application.Stage.REJECTED:
+            return error("This application has already been rejected.", 409)
+        app.recruiter_decision = Application.RecruiterDecision.REJECTED
+        app.stage = Application.Stage.REJECTED
+        app.rejection_reason = str(data.get("rejection_reason") or "").strip()[:1000]
+        app.save(update_fields=["recruiter_decision", "stage", "rejection_reason", "updated_at"])
+
+    return JsonResponse({
+        "application_id": app.id,
+        "status": app.recruiter_decision,
+        "stage": app.stage,
+        "stage_label": app.get_stage_display(),
+        "rejection_reason": app.rejection_reason,
     })
 
 
@@ -798,6 +856,8 @@ def serialize_conversation(application, participant):
         "application_id": application.id,
         "company": application.job.company.name,
         "role": application.job.title,
+        "stage": application.stage,
+        "stage_label": application.get_stage_display(),
         "participant": {"id": partner.id, "name": partner.name},
         "latest_message": ({
             "id": latest.id,
@@ -859,6 +919,8 @@ def send_message(request, application_id):
     text = str(data.get("body", "")).strip()
     if not text:
         return error("body cannot be empty")
+    if len(text) > 4000:
+        return error("body must be 4,000 characters or fewer")
     message = create_message(application=app, sender=user_or_response, body=text)
     return JsonResponse({"id": message.id, "sender_id": message.sender_id, "body": message.body, "created_at": message.created_at.isoformat()}, status=201)
 
