@@ -4,7 +4,7 @@ from django.contrib.auth import get_user_model
 from django.db import connection, transaction
 from django.test import Client, TestCase
 
-from .models import Application, Company, Job, Message, Notification, UserProfile
+from .models import Application, Company, Job, Message, Notification, Resume, UserProfile
 
 
 class NotificationTests(TestCase):
@@ -100,10 +100,10 @@ class NotificationTests(TestCase):
         response = self.client.post(f"/api/applications/{self.application.id}/messages/send/",
                                     json.dumps({"user_id": self.recruiter.id, "body": "Welcome!"}), content_type="application/json")
         self.assertEqual(response.status_code, 201)
-        self.assertEqual(list(Notification.objects.values_list("kind", flat=True)), ["message", "status"])
+        self.assertEqual(list(Notification.objects.values_list("kind", flat=True)), ["message", "message", "status"])
         self.client.force_login(self.user)
         response = self.client.get("/api/notifications/")
-        self.assertEqual(response.json()["unreadCount"], 2)
+        self.assertEqual(response.json()["unreadCount"], 3)
         self.assertEqual(response.json()["notifications"][0]["sender"], "Riley")
 
     def test_read_states_persist_and_are_scoped_to_logged_in_applicant(self):
@@ -165,6 +165,12 @@ class NotificationTests(TestCase):
 
     def test_existing_session_without_matching_profile_can_apply(self):
         user = get_user_model().objects.create_user(email="unlinked@example.com", name="New", role="applicant")
+        Resume.objects.create(
+            user=user,
+            name="Default resume",
+            latex="\\documentclass{article}\\begin{document}New applicant\\end{document}",
+            is_default=True,
+        )
         self.client.force_login(user)
         response = self.client.get("/api/jobs/deck/", {"candidate_id": "undefined"})
         self.assertEqual(response.status_code, 200)

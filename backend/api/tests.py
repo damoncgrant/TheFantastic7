@@ -1,11 +1,12 @@
 import json
 import tempfile
+from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase
 
-from .models import Application, Company, Job, UserProfile
+from .models import Application, Company, Job, Resume, UserProfile
 
 
 class MatchingFlowTests(TestCase):
@@ -111,6 +112,13 @@ class RecruiterDatabaseTests(TestCase):
         return self.client.post(url, data=json.dumps(payload), content_type="application/json")
 
     def test_dashboard_uses_recruiter_jobs_applicants_and_stats(self):
+        resume = Resume.objects.create(
+            user=self.applicant_account,
+            name="Frontend resume",
+            latex="\\documentclass{article}\\begin{document}Ava\\end{document}",
+            builder_data={"skills": {"languages": "JavaScript, Python", "frameworks": "React"}},
+            is_default=True,
+        )
         self.client.force_login(self.recruiter_account)
 
         response = self.client.get("/api/recruiter/dashboard/")
@@ -126,6 +134,25 @@ class RecruiterDatabaseTests(TestCase):
         self.assertEqual(payload["jobs"][0]["title"], "Frontend Developer")
         self.assertEqual(payload["candidates"][0]["name"], "Ava Applicant")
         self.assertEqual(payload["candidates"][0]["job_id"], self.existing_job.id)
+        self.assertEqual(payload["candidates"][0]["resume"]["name"], resume.name)
+        self.assertIn("React", payload["candidates"][0]["keywords"])
+
+    @patch("api.views.compile_png", return_value=b"\x89PNG\r\n\x1a\nresume-image")
+    def test_recruiter_can_preview_an_applicants_default_resume(self, compile_resume):
+        Resume.objects.create(
+            user=self.applicant_account,
+            name="Candidate resume",
+            latex="\\documentclass{article}\\begin{document}Ava\\end{document}",
+            is_default=True,
+        )
+        self.client.force_login(self.recruiter_account)
+
+        response = self.client.get(f"/api/applications/{self.application.id}/resume/")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response["Content-Type"], "image/png")
+        self.assertTrue(response.content.startswith(b"\x89PNG"))
+        compile_resume.assert_called_once()
 
     def test_recruiter_can_create_job_that_appears_in_candidate_deck(self):
         self.client.force_login(self.recruiter_account)

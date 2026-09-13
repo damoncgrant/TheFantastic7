@@ -20,5 +20,7 @@ export async function fetchApplications(candidateId, options) {
     status: application.stage_label,
     // Prefer the posting photo uploaded by the recruiter, then fall back to its company logo.
     profile: application.job.photo_url || application.job.company.logo_url,
+    // Full job details, kept around for the job detail screen.
+    job: application.job,
   }));
 }
