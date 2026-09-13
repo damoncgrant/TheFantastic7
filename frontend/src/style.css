@@ -1490,6 +1490,46 @@ h2 {
   font-size: 0.8rem;
 }
 
+.recruiter-match-animation {
+  position: fixed;
+  inset: 0;
+  z-index: 1100;
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) auto;
+  place-items: center;
+  gap: 16px;
+  padding: 24px;
+  background: rgb(16 33 61 / 35%);
+  opacity: 0;
+  pointer-events: none;
+}
+
+.recruiter-match-animation.is-visible {
+  animation: recruiter-match-fade-in 1s ease-out forwards;
+}
+
+.recruiter-match-animation img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  object-fit: contain;
+}
+
+.recruiter-match-messages-button {
+  min-height: 88px;
+  max-width: 100%;
+  padding: 0 36px;
+  font-size: 2em;
+  white-space: normal;
+  pointer-events: auto;
+}
+
+@keyframes recruiter-match-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
 /* Recruiter candidate deck mirrors the applicant swipe interaction. */
 .recruiter-swipe-screen {
   display: grid;

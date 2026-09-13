@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { flushSync } from 'react-dom';
 import {
   createRecruiterJob,
   fetchRecruiterDashboard,
@@ -9,6 +10,36 @@ import {
 } from './api.js';
 import DMPage from './DMPage.jsx';
 import NotificationsPage, { useNotifications } from './NotificationsPage.jsx';
+
+const MATCH_IMAGE_URL = '/pngtree-construction-worker-engineer-png-image_11500172%20(1).png';
+
+function RecruiterMatchAnimation({ candidate, onComplete, onOpenMessages }) {
+  const [loaded, setLoaded] = useState(false);
+
+  useEffect(() => {
+    if (!loaded) return undefined;
+    // Allow 1 second to fade in, followed by 5 seconds fully visible.
+    const timer = window.setTimeout(onComplete, 6000);
+    return () => window.clearTimeout(timer);
+  }, [loaded, onComplete]);
+
+  return (
+    <div className={`recruiter-match-animation${loaded ? ' is-visible' : ''}`} role="status" aria-label={`You matched with ${candidate.name}!`}>
+      <img
+        src={MATCH_IMAGE_URL}
+        alt=""
+        draggable={false}
+        onLoad={() => setLoaded(true)}
+        onError={onComplete}
+      />
+      {loaded && (
+        <button className="primary-button recruiter-match-messages-button" type="button" onClick={onOpenMessages}>
+          Go to messages
+        </button>
+      )}
+    </div>
+  );
+}
 
 const recruiterNavigation = [
   { id: 'recruiter-overview', label: 'Overview' },
@@ -133,7 +164,7 @@ function CandidateResumePanel({ candidate, imageError, onImageError }) {
   );
 }
 
-function RecruiterCandidateSwiper({ candidates, onCandidateReviewed }) {
+function RecruiterCandidateSwiper({ candidates, onCandidateReviewed, onMatch }) {
   const [queue, setQueue] = useState(candidates);
   const [dragX, setDragX] = useState(0);
   const [exiting, setExiting] = useState(null);
@@ -162,7 +193,8 @@ function RecruiterCandidateSwiper({ candidates, onCandidateReviewed }) {
     setError('');
     setExiting(direction);
     try {
-      await reviewCandidateApplication(current.application_id, direction);
+      const result = await reviewCandidateApplication(current.application_id, direction);
+      if (direction === 'right' && result.messaging_unlocked) onMatch(current);
       await new Promise((resolve) => window.setTimeout(resolve, 220));
       setQueue((items) => items.slice(1));
       setDragX(0);
@@ -173,7 +205,7 @@ function RecruiterCandidateSwiper({ candidates, onCandidateReviewed }) {
       setExiting(null);
       setError(reviewError.message || 'Could not update this application.');
     }
-  }, [current, exiting, onCandidateReviewed]);
+  }, [current, exiting, onCandidateReviewed, onMatch]);
 
   if (!current) {
     return (
@@ -401,7 +433,7 @@ function RecruiterJobs({ data, loading, error }) {
   );
 }
 
-function RecruiterCandidates({ data, loading, error, onCandidateReviewed }) {
+function RecruiterCandidates({ data, loading, error, onCandidateReviewed, onMatch }) {
   const allCandidates = data?.candidates ?? [];
   const candidates = allCandidates.filter((candidate) => candidate.recruiter_decision === 'pending');
 
@@ -440,7 +472,7 @@ function RecruiterCandidates({ data, loading, error, onCandidateReviewed }) {
       </section>
     );
   } else {
-    content = <RecruiterCandidateSwiper candidates={candidates} onCandidateReviewed={onCandidateReviewed} />;
+    content = <RecruiterCandidateSwiper candidates={candidates} onCandidateReviewed={onCandidateReviewed} onMatch={onMatch} />;
   }
 
   return (
@@ -815,10 +847,22 @@ export default function RecruiterApp({ user, onLogout }) {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [match, setMatch] = useState(null);
+  const clearMatch = useCallback(() => setMatch(null), []);
+  const openMatchMessages = useCallback(() => {
+    // Remove the overlay before changing routes.
+    flushSync(() => setMatch(null));
+    window.location.hash = 'recruiter-messages';
+  }, []);
   const activePage = getRecruiterPage(activeRoute);
   const ActivePage = recruiterPages[activePage];
   const displayName = user.name || user.email;
   const notifications = useNotifications(Boolean(user), user.email);
+
+  useEffect(() => {
+    const image = new Image();
+    image.src = MATCH_IMAGE_URL;
+  }, []);
 
   const loadDashboard = useCallback(async (options) => {
     try {
@@ -896,9 +940,11 @@ export default function RecruiterApp({ user, onLogout }) {
           onJobCreated={loadDashboard}
           onJobUpdated={loadDashboard}
           onCandidateReviewed={loadDashboard}
+          onMatch={setMatch}
           notifications={notifications}
         />
       </main>
+      {match && <RecruiterMatchAnimation key={match.application_id} candidate={match} onComplete={clearMatch} onOpenMessages={openMatchMessages} />}
     </div>
   );
 }
