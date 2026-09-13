@@ -281,6 +281,21 @@ a {
   font-size: 0.76rem;
 }
 
+.sidebar-logout {
+  margin-top: 9px;
+  padding: 7px;
+  border: 0;
+  color: var(--muted);
+  background: transparent;
+  font-size: 0.76rem;
+  text-align: left;
+}
+
+.sidebar-logout:hover,
+.sidebar-logout:focus-visible {
+  color: var(--cream);
+}
+
 .avatar {
   width: 36px;
   height: 36px;
@@ -2512,7 +2527,8 @@ h2 {
   }
 
   .recruiter-account,
-  .workspace-label {
+  .workspace-label,
+  .sidebar-logout {
     display: none;
   }
 
