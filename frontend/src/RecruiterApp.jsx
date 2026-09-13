@@ -7,11 +7,15 @@ import {
   updateRecruiterJob,
   uploadRecruiterJobPhoto,
 } from './api.js';
+import DMPage from './DMPage.jsx';
+import NotificationsPage, { useNotifications } from './NotificationsPage.jsx';
 
 const recruiterNavigation = [
   { id: 'recruiter-overview', label: 'Overview' },
   { id: 'recruiter-jobs', label: 'Job postings' },
   { id: 'recruiter-candidates', label: 'Candidates' },
+  { id: 'recruiter-messages', label: 'Messages' },
+  { id: 'recruiter-notifications', label: 'Notifications' },
 ];
 
 function RecruiterHeader({ eyebrow, title, description, action }) {
@@ -726,6 +730,8 @@ const recruiterPages = {
   'recruiter-overview': RecruiterOverview,
   'recruiter-jobs': RecruiterJobs,
   'recruiter-candidates': RecruiterCandidates,
+  'recruiter-messages': DMPage,
+  'recruiter-notifications': NotificationsPage,
   'recruiter-new-job': NewJobPage,
   'recruiter-manage-job': ManageJobPage,
 };
@@ -747,6 +753,7 @@ export default function RecruiterApp({ user, onLogout }) {
   const activePage = getRecruiterPage(activeRoute);
   const ActivePage = recruiterPages[activePage];
   const displayName = user.name || user.email;
+  const notifications = useNotifications(Boolean(user), user.email);
 
   const loadDashboard = useCallback(async (options) => {
     try {
@@ -812,6 +819,8 @@ export default function RecruiterApp({ user, onLogout }) {
           <span className="recruiter-mode-pill">Recruiter mode</span>
         </div>
         <ActivePage
+          user={user}
+          messagesRoute="recruiter-messages"
           name={displayName}
           data={data}
           loading={loading}
@@ -820,6 +829,7 @@ export default function RecruiterApp({ user, onLogout }) {
           onJobCreated={loadDashboard}
           onJobUpdated={loadDashboard}
           onCandidateReviewed={loadDashboard}
+          notifications={notifications}
         />
       </main>
     </div>

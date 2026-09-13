@@ -246,6 +246,8 @@ def serialize_application(application):
         "id": application.id,
         "stage": application.stage,
         "stage_label": application.get_stage_display(),
+        "is_match": application.is_match,
+        "recruiter_decision": application.recruiter_decision,
         "applied_at": application.applied_at.isoformat(),
         "resume": {"id": application.resume_id, "name": application.resume.name} if application.resume_id else None,
         "job": serialize_job(application.job, application),
@@ -743,31 +745,68 @@ def candidate_applications(request):
     return JsonResponse({"applications": [serialize_application(application) for application in applications]})
 
 
-def messaging_participant(application_id, user_id):
-    app = get_object_or_404(Application.objects.select_related("job"), pk=application_id)
-    user = get_user(user_id)
-    if user is None or user.id not in {app.candidate_id, app.job.recruiter_id}:
+def messaging_participant(request, application_id):
+    account = authenticated_user(request)
+    if account is None:
+        return None, error("Sign in to use messages.", 401)
+    user = ensure_user_profile(account)
+    app = get_object_or_404(
+        Application.objects.select_related("job__company", "candidate"),
+        pk=application_id,
+    )
+    if user.id not in {app.candidate_id, app.job.recruiter_id}:
         return None, error("You are not a participant in this application", 403)
     if not app.is_match:
         return None, error("Messaging unlocks only after recruiter selection", 403)
     return app, user
 
 
+def serialize_conversation(application, participant):
+    partner = application.job.recruiter if participant.id == application.candidate_id else application.candidate
+    messages = list(application.messages.all())
+    latest = messages[-1] if messages else None
+    return {
+        "application_id": application.id,
+        "company": application.job.company.name,
+        "role": application.job.title,
+        "participant": {"id": partner.id, "name": partner.name},
+        "latest_message": ({
+            "id": latest.id,
+            "sender_id": latest.sender_id,
+            "body": latest.body,
+            "created_at": latest.created_at.isoformat(),
+        } if latest else None),
+    }
+
+
+@require_GET
+def conversations(request):
+    account = authenticated_user(request)
+    if account is None:
+        return error("Sign in to use messages.", 401)
+    participant = ensure_user_profile(account)
+    applications = Application.objects.filter(
+        Q(candidate=participant) | Q(job__recruiter=participant),
+        candidate_decision=Application.CandidateDecision.APPLIED,
+        recruiter_decision=Application.RecruiterDecision.SELECTED,
+    ).select_related("candidate", "job__company", "job__recruiter").prefetch_related("messages").order_by("-updated_at")
+    return JsonResponse({"conversations": [serialize_conversation(app, participant) for app in applications]})
+
+
 @require_GET
 def messages(request, application_id):
-    app, user_or_response = messaging_participant(application_id, request.GET.get("user_id"))
+    app, user_or_response = messaging_participant(request, application_id)
     if app is None:
         return user_or_response
     return JsonResponse({"messages": [{"id": msg.id, "sender_id": msg.sender_id, "body": msg.body, "created_at": msg.created_at.isoformat()} for msg in app.messages.all()]})
 
 
-@csrf_exempt
 @require_http_methods(["POST"])
 def send_message(request, application_id):
     data = request_json(request)
     if data is None:
         return error("Body must be valid JSON")
-    app, user_or_response = messaging_participant(application_id, data.get("user_id"))
+    app, user_or_response = messaging_participant(request, application_id)
     if app is None:
         return user_or_response
     text = str(data.get("body", "")).strip()

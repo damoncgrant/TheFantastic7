@@ -46,8 +46,17 @@ class MatchingFlowTests(TestCase):
         self.client.force_login(self.candidate_account)
         applications = self.client.get(f"/api/applications/?candidate_id={self.candidate.id}")
         self.assertEqual(applications.json()["applications"][0]["stage"], "offer")
-        message = self.post(f"/api/applications/{application_id}/messages/send/", {"user_id": self.candidate.id, "body": "Thanks!"})
+        self.assertTrue(applications.json()["applications"][0]["is_match"])
+        candidate_conversations = self.client.get("/api/conversations/")
+        self.assertEqual(candidate_conversations.json()["conversations"][0]["participant"]["name"], self.recruiter.name)
+        message = self.post(f"/api/applications/{application_id}/messages/send/", {"body": "Thanks!"})
         self.assertEqual(message.status_code, 201)
+
+        self.client.force_login(self.recruiter_account)
+        recruiter_conversations = self.client.get("/api/conversations/")
+        self.assertEqual(recruiter_conversations.json()["conversations"][0]["participant"]["name"], self.candidate.name)
+        thread = self.client.get(f"/api/applications/{application_id}/messages/")
+        self.assertEqual([item["body"] for item in thread.json()["messages"]][-1], "Thanks!")
 
     def test_left_swipe_is_retained_at_end(self):
         self.post(f"/api/jobs/{self.job.id}/swipe/", {"candidate_id": self.candidate.id, "decision": "left"})

@@ -316,7 +316,7 @@ const pages = {
 };
 
 function getPageFromHash() {
-  const page = window.location.hash.slice(1);
+  const page = window.location.hash.slice(1).split('?')[0];
   return Object.hasOwn(pages, page) ? page : 'overview';
 }
 
@@ -328,7 +328,7 @@ export default function App({ user, onLogout }) {
   const [applications, setApplications] = useState([]);
   const [applicationsLoading, setApplicationsLoading] = useState(true);
   const legacyPhotoSync = useRef({ source: '', promise: null });
-  const notifications = useNotifications(user.role === 'applicant', user.email);
+  const notifications = useNotifications(Boolean(user), user.email);
   const ActivePage = activePage === 'notifications' && user.role !== 'applicant' ? OverviewPage : pages[activePage];
 
   async function saveProfile(nextProfile, pictureChange = {}) {
@@ -461,6 +461,8 @@ export default function App({ user, onLogout }) {
 
       <main className={`dashboard${activePage === 'resume' ? ' resume-dashboard' : ''}`} key={activePage}>
         <ActivePage
+          user={user}
+          messagesRoute="messages"
           profile={profile}
           onSave={saveProfile}
           candidateId={candidateId}
