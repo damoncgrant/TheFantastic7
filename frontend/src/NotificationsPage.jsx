@@ -1,20 +1,30 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { apiRequest, fetchCsrf } from './api';
+import {
+  apiRequest,
+  fetchCsrf,
+  fetchUnreadMessageCount,
+  markMessagesRead as markConversationMessagesRead,
+} from './api';
 
 export function useNotifications(enabled, accountEmail) {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(enabled);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
+  const [unreadMessageCount, setUnreadMessageCount] = useState(0);
   const requestId = useRef(0);
 
   const refresh = useCallback(async (signal) => {
     const id = ++requestId.current;
     try {
-      const data = await apiRequest('/api/notifications/', { signal });
+      const [data, messageData] = await Promise.all([
+        apiRequest('/api/notifications/', { signal }),
+        fetchUnreadMessageCount({ signal }),
+      ]);
       if (!Array.isArray(data.notifications)) throw new Error('Could not load notifications. Please try again.');
       if (id === requestId.current) {
         setItems(data.notifications);
+        setUnreadMessageCount(Number(messageData.unreadMessageCount) || 0);
         setError('');
       }
     } catch (err) {
@@ -26,6 +36,7 @@ export function useNotifications(enabled, accountEmail) {
 
   useEffect(() => {
     setItems([]);
+    setUnreadMessageCount(0);
     setError('');
     setLoading(enabled);
     if (!enabled) return;
@@ -33,7 +44,7 @@ export function useNotifications(enabled, accountEmail) {
     let timer;
     async function poll() {
       await refresh(controller.signal);
-      if (!controller.signal.aborted) timer = window.setTimeout(poll, 15000);
+      if (!controller.signal.aborted) timer = window.setTimeout(poll, 3000);
     }
     poll();
     return () => {
@@ -59,7 +70,27 @@ export function useNotifications(enabled, accountEmail) {
     }
   }
 
-  return { items, loading, error, busy, refresh, markRead, unreadCount: items.filter((item) => !item.readAt).length };
+  const markMessagesRead = useCallback(async (applicationId) => {
+    try {
+      await fetchCsrf();
+      await markConversationMessagesRead(applicationId);
+      await refresh();
+    } catch {
+      // The next poll will retry the badge state without disrupting the inbox.
+    }
+  }, [refresh]);
+
+  return {
+    items,
+    loading,
+    error,
+    busy,
+    refresh,
+    markRead,
+    markMessagesRead,
+    unreadCount: items.filter((item) => !item.readAt).length,
+    unreadMessageCount,
+  };
 }
 
 export default function NotificationsPage({ notifications }) {
@@ -73,7 +104,7 @@ export default function NotificationsPage({ notifications }) {
         <div>
           <p className="eyebrow">Stay in the loop</p>
           <h1>Notifications</h1>
-          <p>Application updates and new messages from recruiters.</p>
+          <p>Application status updates.</p>
         </div>
         <button className="secondary-button notifications-mark-all" type="button" disabled={!unreadCount || busy} onClick={() => markRead()}>
           Mark all as read
@@ -90,23 +121,23 @@ export default function NotificationsPage({ notifications }) {
         {error && <div className="notification-error"><p role="alert">{error}</p><button className="secondary-button" type="button" onClick={() => refresh()}>Try again</button></div>}
         {!loading && !error && visibleItems.length === 0 && <div className="notifications-empty">
           <h2>{filter === 'unread' ? 'You’re all caught up.' : 'No notifications yet.'}</h2>
-          <p>{filter === 'unread' ? 'New updates will appear here.' : 'We’ll let you know when an application status changes or a recruiter sends you a message.'}</p>
+          <p>{filter === 'unread' ? 'New updates will appear here.' : 'Application status updates will appear here.'}</p>
         </div>}
         <div className="notification-list">
           {visibleItems.map((item) => (
             <article className={`notification-row ${item.readAt ? '' : 'unread'}`} key={item.id}>
-              <span className="company-mark" aria-hidden="true">{item.kind === 'message' ? '✉' : '↗'}</span>
+              <span className="company-mark" aria-hidden="true">↗</span>
               <div className="notification-content">
                 <div className="notification-title">
-                  <h2>{item.kind === 'message' ? `New message from ${item.sender}` : 'Application status updated'}</h2>
+                  <h2>Application status updated</h2>
                   {!item.readAt && <span className="status">Unread</span>}
                 </div>
                 <p className="notification-context">{item.jobTitle} · {item.company}</p>
                 <p className="notification-body">{item.body}</p>
                 <time dateTime={item.createdAt}>{new Date(item.createdAt).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })}</time>
-                {!item.readAt && <div className="notification-actions">
-                  <button className="secondary-button" type="button" disabled={busy} onClick={() => markRead(item.id)} aria-label={`Mark notification about ${item.jobTitle} as read`}>Mark as read</button>
-                </div>}
+                <div className="notification-actions">
+                  {!item.readAt && <button className="secondary-button" type="button" disabled={busy} onClick={() => markRead(item.id)} aria-label={`Mark notification about ${item.jobTitle} as read`}>Mark as read</button>}
+                </div>
               </div>
             </article>
           ))}

@@ -9,12 +9,13 @@ from django.db.models import Case, Count, IntegerField, Q, Value, When
 from django.http import FileResponse, HttpResponse, JsonResponse
 from django.middleware.csrf import get_token
 from django.shortcuts import get_object_or_404
+from django.utils import timezone
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_GET, require_http_methods, require_POST
 
 from .latex import LatexError, compile_png
 from .identity import ensure_user_profile
-from .models import Application, Company, Job, Message, Resume, UserProfile
+from .models import Application, Company, Job, Message, Notification, Resume, UserProfile
 from .resume_builder import build_resume as build_latex_resume
 
 
@@ -174,11 +175,11 @@ def resume_detail(request, resume_id):
     user = authenticated_user(request)
     if user is None:
         return error("Sign in to manage resumes.", 401)
-    resume = get_object_or_404(Resume, pk=resume_id, user=user)
-    if request.method == "GET":
-        return JsonResponse({"resume": serialize_resume(resume)})
     if request.method == "DELETE":
         with transaction.atomic():
+            resume = Resume.objects.filter(pk=resume_id, user=user).first()
+            if resume is None:
+                return HttpResponse(status=204)
             was_default = resume.is_default
             resume.delete()
             if was_default:
@@ -186,7 +187,11 @@ def resume_detail(request, resume_id):
                 if replacement:
                     replacement.is_default = True
                     replacement.save(update_fields=["is_default", "updated_at"])
-        return JsonResponse({}, status=204)
+        return HttpResponse(status=204)
+
+    resume = get_object_or_404(Resume, pk=resume_id, user=user)
+    if request.method == "GET":
+        return JsonResponse({"resume": serialize_resume(resume)})
 
     payload, response = resume_payload(request)
     if response:
@@ -246,6 +251,8 @@ def serialize_application(application):
         "id": application.id,
         "stage": application.stage,
         "stage_label": application.get_stage_display(),
+        "is_match": application.is_match,
+        "recruiter_decision": application.recruiter_decision,
         "applied_at": application.applied_at.isoformat(),
         "resume": {"id": application.resume_id, "name": application.resume.name} if application.resume_id else None,
         "job": serialize_job(application.job, application),
@@ -350,9 +357,14 @@ def candidate_job_deck(request):
         return error("candidate_id must belong to a candidate", 403)
     applications = {item.job_id: item for item in Application.objects.filter(candidate=candidate)}
     # Skipped (left-swiped) cards are retained but intentionally placed at the end.
+    # Use job IDs to avoid a join that repeats jobs for other applicants' records.
+    skipped_job_ids = [
+        job_id for job_id, application in applications.items()
+        if application.candidate_decision == Application.CandidateDecision.SKIPPED
+    ]
     jobs = Job.objects.filter(is_active=True).select_related("company").annotate(
         deck_order=Case(
-            When(applications__candidate=candidate, applications__candidate_decision="skipped", then=Value(1)),
+            When(pk__in=skipped_job_ids, then=Value(1)),
             default=Value(0), output_field=IntegerField(),
         )
     ).order_by("deck_order", "-created_at")
@@ -691,7 +703,7 @@ def recruiter_swipe(request, application_id):
     app.stage = Application.Stage.OFFER if data["decision"] == "right" else Application.Stage.REJECTED
     app.save(update_fields=["recruiter_decision", "stage", "updated_at"])
     if app.is_match:
-        Message.objects.create(
+        create_message(
             application=app,
             sender=recruiter,
             body=(
@@ -743,37 +755,111 @@ def candidate_applications(request):
     return JsonResponse({"applications": [serialize_application(application) for application in applications]})
 
 
-def messaging_participant(application_id, user_id):
-    app = get_object_or_404(Application.objects.select_related("job"), pk=application_id)
-    user = get_user(user_id)
-    if user is None or user.id not in {app.candidate_id, app.job.recruiter_id}:
+def messaging_participant(request, application_id):
+    account = authenticated_user(request)
+    if account is None:
+        return None, error("Sign in to use messages.", 401)
+    user = ensure_user_profile(account)
+    app = get_object_or_404(
+        Application.objects.select_related("job__company", "candidate"),
+        pk=application_id,
+    )
+    if user.id not in {app.candidate_id, app.job.recruiter_id}:
         return None, error("You are not a participant in this application", 403)
     if not app.is_match:
         return None, error("Messaging unlocks only after recruiter selection", 403)
     return app, user
 
 
+def create_message(application, sender, body):
+    """Create a message and the recipient's unread-message record together."""
+    recipient_id = (
+        application.candidate_id
+        if sender.id == application.job.recruiter_id
+        else application.job.recruiter_id
+    )
+    with transaction.atomic():
+        message = Message.objects.create(application=application, sender=sender, body=body)
+        Notification.objects.create(
+            recipient_id=recipient_id,
+            application=application,
+            message=message,
+            kind=Notification.Kind.MESSAGE,
+            body=body,
+        )
+    return message
+
+
+def serialize_conversation(application, participant):
+    partner = application.job.recruiter if participant.id == application.candidate_id else application.candidate
+    messages = list(application.messages.all())
+    latest = messages[-1] if messages else None
+    return {
+        "application_id": application.id,
+        "company": application.job.company.name,
+        "role": application.job.title,
+        "participant": {"id": partner.id, "name": partner.name},
+        "latest_message": ({
+            "id": latest.id,
+            "sender_id": latest.sender_id,
+            "body": latest.body,
+            "created_at": latest.created_at.isoformat(),
+        } if latest else None),
+    }
+
+
+@require_GET
+def conversations(request):
+    account = authenticated_user(request)
+    if account is None:
+        return error("Sign in to use messages.", 401)
+    participant = ensure_user_profile(account)
+    applications = Application.objects.filter(
+        Q(candidate=participant) | Q(job__recruiter=participant),
+        candidate_decision=Application.CandidateDecision.APPLIED,
+        recruiter_decision=Application.RecruiterDecision.SELECTED,
+    ).select_related("candidate", "job__company", "job__recruiter").prefetch_related("messages").order_by("-updated_at")
+    response = JsonResponse({"conversations": [serialize_conversation(app, participant) for app in applications]})
+    response["Cache-Control"] = "no-store"
+    return response
+
+
 @require_GET
 def messages(request, application_id):
-    app, user_or_response = messaging_participant(application_id, request.GET.get("user_id"))
+    app, user_or_response = messaging_participant(request, application_id)
     if app is None:
         return user_or_response
-    return JsonResponse({"messages": [{"id": msg.id, "sender_id": msg.sender_id, "body": msg.body, "created_at": msg.created_at.isoformat()} for msg in app.messages.all()]})
+    response = JsonResponse({"messages": [{"id": msg.id, "sender_id": msg.sender_id, "body": msg.body, "created_at": msg.created_at.isoformat()} for msg in app.messages.all()]})
+    response["Cache-Control"] = "no-store"
+    return response
 
 
-@csrf_exempt
+@require_POST
+def mark_messages_read(request, application_id):
+    app, user_or_response = messaging_participant(request, application_id)
+    if app is None:
+        return user_or_response
+    Notification.objects.filter(
+        recipient=user_or_response,
+        application=app,
+        kind=Notification.Kind.MESSAGE,
+        read_at__isnull=True,
+    ).update(read_at=timezone.now())
+    return JsonResponse({"detail": "Messages marked as read."})
+
+
 @require_http_methods(["POST"])
 def send_message(request, application_id):
     data = request_json(request)
     if data is None:
         return error("Body must be valid JSON")
-    app, user_or_response = messaging_participant(application_id, data.get("user_id"))
+    app, user_or_response = messaging_participant(request, application_id)
     if app is None:
         return user_or_response
     text = str(data.get("body", "")).strip()
     if not text:
         return error("body cannot be empty")
-    message = Message.objects.create(application=app, sender=user_or_response, body=text)
+    message = create_message(application=app, sender=user_or_response, body=text)
     return JsonResponse({"id": message.id, "sender_id": message.sender_id, "body": message.body, "created_at": message.created_at.isoformat()}, status=201)
 
 

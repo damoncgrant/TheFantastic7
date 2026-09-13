@@ -46,13 +46,49 @@ class MatchingFlowTests(TestCase):
         self.client.force_login(self.candidate_account)
         applications = self.client.get(f"/api/applications/?candidate_id={self.candidate.id}")
         self.assertEqual(applications.json()["applications"][0]["stage"], "offer")
-        message = self.post(f"/api/applications/{application_id}/messages/send/", {"user_id": self.candidate.id, "body": "Thanks!"})
+        self.assertTrue(applications.json()["applications"][0]["is_match"])
+        candidate_conversations = self.client.get("/api/conversations/")
+        self.assertEqual(candidate_conversations.json()["conversations"][0]["participant"]["name"], self.recruiter.name)
+        message = self.post(f"/api/applications/{application_id}/messages/send/", {"body": "Thanks!"})
         self.assertEqual(message.status_code, 201)
+
+        self.client.force_login(self.recruiter_account)
+        recruiter_conversations = self.client.get("/api/conversations/")
+        self.assertEqual(recruiter_conversations.json()["conversations"][0]["participant"]["name"], self.candidate.name)
+        thread = self.client.get(f"/api/applications/{application_id}/messages/")
+        self.assertEqual([item["body"] for item in thread.json()["messages"]][-1], "Thanks!")
 
     def test_left_swipe_is_retained_at_end(self):
         self.post(f"/api/jobs/{self.job.id}/swipe/", {"candidate_id": self.candidate.id, "decision": "left"})
         deck = self.client.get(f"/api/jobs/deck/?candidate_id={self.candidate.id}")
         self.assertEqual(deck.json()["jobs"][0]["swipe_status"], "skipped")
+
+    def test_deck_returns_each_job_once_when_other_candidates_have_applications(self):
+        for index, decision in enumerate(["applied", "skipped"]):
+            other = UserProfile.objects.create(
+                name=f"Other {index}", email=f"other{index}@example.com", role="candidate",
+            )
+            Application.objects.create(job=self.job, candidate=other, candidate_decision=decision)
+        new_job = Job.objects.create(
+            company=self.job.company, recruiter=self.recruiter,
+            title="Another role", description="Build products", location="Remote", compensation="$90k",
+        )
+        self.client.force_login(self.candidate_account)
+
+        for decision in [None, "skipped", "applied"]:
+            with self.subTest(decision=decision):
+                if decision:
+                    Application.objects.update_or_create(
+                        job=self.job, candidate=self.candidate,
+                        defaults={"candidate_decision": decision},
+                    )
+                response = self.client.get("/api/jobs/deck/")
+                self.assertEqual(response.status_code, 200)
+                jobs = response.json()["jobs"]
+                expected_ids = [new_job.id] if decision == "applied" else [new_job.id, self.job.id]
+                self.assertEqual([job["id"] for job in jobs], expected_ids)
+                if decision != "applied":
+                    self.assertEqual(jobs[-1]["swipe_status"], decision or "new")
 
     def test_swipe_endpoint_accepts_spa_json_without_csrf_cookie(self):
         client = self.client_class(enforce_csrf_checks=True)
