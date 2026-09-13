@@ -120,7 +120,12 @@ function ManagedApplicantRow({ candidate }) {
         {candidate.stage === 'offer' ? 'Offer sent' : candidate.stage_label}
       </span>
       {candidate.recruiter_decision === 'pending' && (
-        <a className="secondary-button compact-button button-link" href="#recruiter-candidates">Review</a>
+        <a
+          className="secondary-button compact-button button-link"
+          href={`#recruiter-candidates?application=${candidate.application_id}`}
+        >
+          Review
+        </a>
       )}
     </article>
   );
@@ -433,9 +438,13 @@ function RecruiterJobs({ data, loading, error }) {
   );
 }
 
-function RecruiterCandidates({ data, loading, error, onCandidateReviewed, onMatch }) {
+function RecruiterCandidates({ data, loading, error, applicationId, onCandidateReviewed, onMatch }) {
   const allCandidates = data?.candidates ?? [];
-  const candidates = allCandidates.filter((candidate) => candidate.recruiter_decision === 'pending');
+  const pendingCandidates = allCandidates.filter((candidate) => candidate.recruiter_decision === 'pending');
+  const focusedCandidate = applicationId
+    ? pendingCandidates.find((candidate) => String(candidate.application_id) === String(applicationId))
+    : null;
+  const candidates = applicationId ? (focusedCandidate ? [focusedCandidate] : []) : pendingCandidates;
 
   let content;
   if (loading) {
@@ -460,6 +469,20 @@ function RecruiterCandidates({ data, loading, error, onCandidateReviewed, onMatc
         </div>
       </section>
     );
+  } else if (applicationId && !focusedCandidate) {
+    content = (
+      <section className="recruiter-candidates-empty compact" aria-labelledby="focused-candidate-missing-heading">
+        <div className="recruiter-empty-count complete" aria-hidden="true">✓</div>
+        <div className="recruiter-empty-copy">
+          <p className="eyebrow">Application unavailable</p>
+          <h2 id="focused-candidate-missing-heading">This application is no longer awaiting review</h2>
+          <p>It may already have been offered or rejected. You can return to the queue to review other applicants.</p>
+          <div className="recruiter-empty-actions">
+            <a className="primary-button button-link" href="#recruiter-candidates">View all pending candidates</a>
+          </div>
+        </div>
+      </section>
+    );
   } else if (candidates.length === 0) {
     content = (
       <section className="recruiter-candidates-empty compact" aria-labelledby="reviewed-candidates-heading">
@@ -479,8 +502,13 @@ function RecruiterCandidates({ data, loading, error, onCandidateReviewed, onMatc
     <>
       <RecruiterHeader
         eyebrow="Discover talent"
-        title="Candidates"
-        description="Swipe right to make an offer, or left to reject an application."
+        title={focusedCandidate ? focusedCandidate.name : 'Candidates'}
+        description={focusedCandidate
+          ? `Review ${focusedCandidate.name}'s application without leaving this candidate.`
+          : 'Swipe right to make an offer, or left to reject an application.'}
+        action={focusedCandidate
+          ? <a className="secondary-button button-link" href="#recruiter-candidates">View all candidates</a>
+          : null}
       />
       {content}
     </>
@@ -842,6 +870,10 @@ function getManagedJobId(route) {
   return new URLSearchParams(route.split('?')[1] || '').get('job');
 }
 
+function getReviewedApplicationId(route) {
+  return new URLSearchParams(route.split('?')[1] || '').get('application');
+}
+
 export default function RecruiterApp({ user, onLogout }) {
   const [activeRoute, setActiveRoute] = useState(() => window.location.hash.slice(1) || 'recruiter-overview');
   const [data, setData] = useState(null);
@@ -937,6 +969,7 @@ export default function RecruiterApp({ user, onLogout }) {
           loading={loading}
           error={error}
           jobId={getManagedJobId(activeRoute)}
+          applicationId={getReviewedApplicationId(activeRoute)}
           onJobCreated={loadDashboard}
           onJobUpdated={loadDashboard}
           onCandidateReviewed={loadDashboard}
