@@ -2103,6 +2103,197 @@ h2 {
   outline-offset: 3px;
 }
 
+.recruiter-rejection-reason {
+  display: grid;
+  gap: 7px;
+  margin-top: 18px;
+  color: #40556b;
+  font-size: 0.9rem;
+  font-weight: 700;
+  text-align: left;
+}
+
+.recruiter-rejection-reason em,
+.interview-rejection-form span {
+  color: #72859a;
+  font-style: normal;
+  font-weight: 500;
+}
+
+.recruiter-rejection-reason textarea,
+.interview-rejection-form textarea {
+  min-height: 86px;
+  resize: vertical;
+  border: 1px solid #bfd0da;
+  border-radius: 12px;
+  padding: 10px 12px;
+  color: var(--recruiter-navy);
+  font: inherit;
+}
+
+.interview-candidates-panel {
+  width: min(100%, 900px);
+  margin: 30px auto 0;
+  padding: 28px;
+  border: 1px solid #d9e5e9;
+  border-radius: 24px;
+  background: #fff;
+  box-shadow: 0 14px 38px rgb(20 52 77 / 8%);
+}
+
+.interview-candidate-list {
+  display: grid;
+  gap: 14px;
+  margin-top: 18px;
+}
+
+.interview-candidate-card {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 14px 22px;
+  align-items: center;
+  padding: 19px;
+  border: 1px solid #dbe7ea;
+  border-radius: 18px;
+  background: #f9fcfc;
+}
+
+.interview-candidate-card .eyebrow { margin: 0 0 5px; }
+.interview-candidate-card h3 { margin: 0; color: var(--recruiter-navy); }
+.interview-candidate-card p:not(.eyebrow) { margin: 5px 0 0; color: #61758a; }
+
+.interview-candidate-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 9px;
+}
+
+.interview-candidate-actions button,
+.interview-rejection-form button { min-height: 40px; }
+
+.interview-rejection-form {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: end;
+  gap: 12px;
+  padding-top: 14px;
+  border-top: 1px solid #dbe7ea;
+}
+
+.interview-rejection-form label { display: grid; gap: 7px; color: #40556b; font-weight: 700; }
+
+.conversation-application-actions {
+  display: block;
+  margin: 4px 0 20px;
+  padding: 14px;
+  border: 1px solid #e1eaed;
+  border-radius: 14px;
+  background: #fbfcfd;
+}
+
+.conversation-application-actions > div:first-child { display: grid; gap: 4px; }
+.conversation-application-actions strong { color: var(--recruiter-navy); }
+.conversation-application-actions span { color: #5b7380; font-size: 0.9rem; }
+
+.conversation-application-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 9px;
+}
+
+.conversation-thread-side {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.conversation-action-button {
+  min-height: 36px;
+  padding-inline: 14px;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 750;
+  white-space: nowrap;
+}
+
+.conversation-thread-side .recruiter-offer-button {
+  background: var(--recruiter-teal) !important;
+  box-shadow: none;
+}
+
+.conversation-thread-side .recruiter-reject-button {
+  border-color: #f0c9d0;
+  color: #b8364e;
+  background: #fffafb;
+}
+
+.conversation-rejection-form {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: end;
+}
+
+.conversation-rejection-form label {
+  display: grid;
+  grid-column: 1;
+  grid-row: 1 / span 2;
+  gap: 6px;
+  min-width: 0;
+  color: #506679;
+  font-size: 0.84rem;
+  font-weight: 700;
+}
+.conversation-rejection-form small { color: #70848b; font-size: 0.77rem; font-weight: 500; }
+.conversation-rejection-form textarea {
+  width: 100%;
+  min-height: 78px;
+  resize: vertical;
+  border: 1px solid #d9e3e6;
+  border-radius: 11px;
+  padding: 11px 12px;
+  color: var(--recruiter-navy);
+  background: #ffffff;
+  box-shadow: inset 0 1px 2px rgb(20 52 77 / 5%);
+  font: inherit;
+}
+
+.conversation-rejection-form textarea:focus {
+  border-color: var(--recruiter-teal);
+  outline: 3px solid rgb(18 169 153 / 15%);
+}
+
+.rejection-enter-button {
+  width: auto;
+  min-height: 34px;
+  padding-inline: 13px;
+  align-self: end;
+  background: var(--recruiter-teal);
+}
+
+.rejection-cancel-button {
+  width: auto;
+  min-height: 34px;
+  padding-inline: 13px;
+  align-self: start;
+  border-radius: 999px;
+}
+
+@media (max-width: 620px) {
+  .interview-candidates-panel { padding: 20px; }
+  .interview-candidate-card { grid-template-columns: 1fr; }
+  .interview-candidate-actions { justify-content: flex-start; }
+  .interview-rejection-form { grid-template-columns: 1fr; }
+  .conversation-application-actions,
+  .conversation-application-actions { grid-template-columns: 1fr; }
+  .conversation-application-buttons { justify-content: flex-start; }
+}
+
 @keyframes recruiter-confirm-in {
   from {
     transform: translateY(14px) scale(0.96);

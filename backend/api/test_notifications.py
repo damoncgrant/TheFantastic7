@@ -90,7 +90,7 @@ class NotificationTests(TestCase):
         self.application.refresh_from_db()
         self.assertEqual(self.application.stage, "applied")
 
-    def test_matching_and_messages_create_unread_message_records(self):
+    def test_matching_creates_status_and_message_notifications(self):
         self.client.force_login(self.recruiter_user)
         response = self.client.post(f"/api/applications/{self.application.id}/swipe/",
                                     json.dumps({"decision": "right"}), content_type="application/json")
@@ -98,7 +98,10 @@ class NotificationTests(TestCase):
         response = self.client.post(f"/api/applications/{self.application.id}/messages/send/",
                                     json.dumps({"body": "Welcome!"}), content_type="application/json")
         self.assertEqual(response.status_code, 201)
-        self.assertEqual(Notification.objects.filter(kind=Notification.Kind.MESSAGE).count(), 2)
+        self.assertEqual(
+            list(Notification.objects.values_list("kind", flat=True).order_by("kind")),
+            ["message", "message", "status"],
+        )
         self.client.force_login(self.user)
         response = self.client.get("/api/notifications/")
         self.assertEqual(response.json()["unreadCount"], 1)
@@ -108,10 +111,14 @@ class NotificationTests(TestCase):
         self.assertEqual(response.status_code, 201)
         self.client.force_login(self.recruiter_user)
         self.assertEqual(self.client.get("/api/notifications/").json(), {"notifications": [], "unreadCount": 0})
+        self.assertEqual(self.client.get("/api/messages/unread/").json()["unreadMessageCount"], 1)
         response = self.client.get(f"/api/applications/{self.application.id}/messages/")
         self.assertEqual(response.status_code, 200)
         self.assertEqual([item["body"] for item in response.json()["messages"]][-2:], ["Welcome!", "Thank you!"])
-        self.assertEqual(Notification.objects.filter(kind=Notification.Kind.MESSAGE).count(), 3)
+        self.assertEqual(
+            list(Notification.objects.values_list("kind", flat=True).order_by("kind")),
+            ["message", "message", "message", "status"],
+        )
 
     def test_existing_message_notifications_are_hidden_for_both_participants(self):
         for user, recipient, sender in [
