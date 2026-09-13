@@ -113,7 +113,7 @@ export function reviewCandidateApplication(applicationId, decision, rejectionRea
   });
 }
 
-export function actionRecruiterApplication(applicationId, action, rejectionReason = '') {
+export function actionApplication(applicationId, action, rejectionReason = '') {
   return apiRequest(`/api/applications/${applicationId}/action/`, {
     method: 'POST',
     body: JSON.stringify({ action, rejection_reason: rejectionReason }),

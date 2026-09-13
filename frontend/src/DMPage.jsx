@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import {
-  actionRecruiterApplication,
+  actionApplication,
   fetchConversations,
   fetchMessages,
   sendMessage as sendMessageRequest,
@@ -180,12 +180,12 @@ export default function DMPage({ user, notifications }) {
     setApplicationActionLoading(true);
     setError('');
     try {
-      const updated = await actionRecruiterApplication(
+      const updated = await actionApplication(
         activeConversation.application_id,
         action,
         rejectionReason,
       );
-      if (action === 'reject') {
+      if (action === 'reject' || action === 'unmatch') {
         setConversations((current) => current.filter(
           (conversation) => conversation.application_id !== activeConversation.application_id,
         ));
@@ -247,6 +247,11 @@ export default function DMPage({ user, notifications }) {
                   Reject
                 </button>
               </div>
+            )}
+            {!isRecruiter && (
+              <button className="recruiter-reject-button compact-button conversation-action-button" type="button" onClick={() => updateApplication('unmatch')} disabled={applicationActionLoading}>
+                {applicationActionLoading ? 'Updating…' : 'Unmatch'}
+              </button>
             )}
           </div>
         </div>
