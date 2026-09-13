@@ -98,7 +98,7 @@ a {
 .nav-links {
   display: grid;
   gap: 6px;
-  margin-top: 56px;
+  margin-top: 28px;
 }
 
 .nav-link {
@@ -106,7 +106,7 @@ a {
   border-radius: 9px;
   color: var(--muted);
   font-size: 0.92rem;
-  transition: color 160ms ease, background 160ms ease;
+  transition: color 160ms ease, background 160ms ease, box-shadow 160ms ease;
 }
 
 .nav-link:hover,
@@ -114,7 +114,43 @@ a {
 .nav-link.active {
   color: var(--cream);
   background: #fff0f3;
+  box-shadow: inset 3px 0 var(--cream);
   outline: none;
+}
+
+.sidebar-cta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 20px;
+  padding: 10px 10px 10px 16px;
+  border-radius: 999px;
+  color: var(--white);
+  font-size: 0.82rem;
+  font-weight: 700;
+  white-space: nowrap;
+  background: linear-gradient(100deg, var(--clay), var(--cream));
+  box-shadow: 0 10px 22px rgb(255 68 88 / 24%);
+  transition: box-shadow 160ms ease, transform 160ms ease;
+}
+
+.sidebar-cta:hover,
+.sidebar-cta:focus-visible {
+  background: linear-gradient(100deg, #ff8b58, #f82f62);
+  box-shadow: 0 12px 26px rgb(255 68 88 / 32%);
+  transform: translateY(-1px);
+  outline: none;
+}
+
+.sidebar-cta-icon {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: rgb(255 255 255 / 25%);
+  font-size: 0.9rem;
 }
 
 .profile {
@@ -384,7 +420,7 @@ h2 {
 
 .application-row {
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
   align-items: center;
   gap: 14px;
   min-height: 76px;
@@ -394,6 +430,28 @@ h2 {
   border-radius: 12px;
   background: color-mix(in srgb, var(--status-color) 5%, white);
   box-shadow: inset 4px 0 var(--status-color);
+  cursor: pointer;
+  transition: box-shadow 160ms ease, transform 160ms ease, background 160ms ease;
+}
+
+.application-row:hover,
+.application-row:focus-visible {
+  background: color-mix(in srgb, var(--status-color) 10%, white);
+  box-shadow: inset 4px 0 var(--status-color), 0 8px 20px rgb(71 34 45 / 10%);
+  transform: translateY(-1px);
+  outline: none;
+}
+
+.application-row-arrow {
+  color: var(--muted);
+  font-size: 1.2rem;
+  transition: transform 160ms ease, color 160ms ease;
+}
+
+.application-row:hover .application-row-arrow,
+.application-row:focus-visible .application-row-arrow {
+  color: var(--status-color);
+  transform: translateX(2px);
 }
 
 .application-applied {
@@ -2139,6 +2197,12 @@ h2 {
   }
 
   .recruiter-shell .nav-links {
+    margin-top: 14px;
+  }
+
+  .sidebar-cta {
+    order: 1;
+    flex: 0 0 auto;
     margin-top: 14px;
   }
 
