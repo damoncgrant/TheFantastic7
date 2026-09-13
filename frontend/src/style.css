@@ -420,7 +420,7 @@ h2 {
 
 .application-row {
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
   align-items: center;
   gap: 14px;
   min-height: 76px;
@@ -430,6 +430,28 @@ h2 {
   border-radius: 12px;
   background: color-mix(in srgb, var(--status-color) 5%, white);
   box-shadow: inset 4px 0 var(--status-color);
+  cursor: pointer;
+  transition: box-shadow 160ms ease, transform 160ms ease, background 160ms ease;
+}
+
+.application-row:hover,
+.application-row:focus-visible {
+  background: color-mix(in srgb, var(--status-color) 10%, white);
+  box-shadow: inset 4px 0 var(--status-color), 0 8px 20px rgb(71 34 45 / 10%);
+  transform: translateY(-1px);
+  outline: none;
+}
+
+.application-row-arrow {
+  color: var(--muted);
+  font-size: 1.2rem;
+  transition: transform 160ms ease, color 160ms ease;
+}
+
+.application-row:hover .application-row-arrow,
+.application-row:focus-visible .application-row-arrow {
+  color: var(--status-color);
+  transform: translateX(2px);
 }
 
 .application-applied {

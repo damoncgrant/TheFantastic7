@@ -29,6 +29,7 @@ export function ApplicationRow({ application, onSelectJob }) {
       <span className={`status ${statusClass}`}>
         {application.status}
       </span>
+      <span className="application-row-arrow" aria-hidden="true">›</span>
     </article>
   );
 }
