@@ -144,6 +144,13 @@ export default function App({ user, onLogout }) {
           <span>jobbler</span>
         </a>
 
+        {user.role === 'applicant' && (
+          <a className="sidebar-cta" href="#swipe" aria-label="Find jobs to apply to">
+            <span className="sidebar-cta-copy">Find jobs</span>
+            <span className="sidebar-cta-icon" aria-hidden="true">→</span>
+          </a>
+        )}
+
         <nav className="nav-links">
           {navigation.filter((item) => !item.applicantOnly || user.role === 'applicant').map((item) => (
             <a
@@ -156,13 +163,6 @@ export default function App({ user, onLogout }) {
             </a>
           ))}
         </nav>
-
-        {user.role === 'applicant' && (
-          <a className="sidebar-cta" href="#swipe" aria-label="Find jobs to apply to">
-            <span className="sidebar-cta-copy">Find jobs</span>
-            <span className="sidebar-cta-icon" aria-hidden="true">→</span>
-          </a>
-        )}
 
         <a
           className={`profile ${activePage === 'profile' ? 'active' : ''}`}
