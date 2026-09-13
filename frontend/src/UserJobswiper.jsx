@@ -16,6 +16,7 @@ export default function JobSwiper({ candidateId }) {
   const [selectedResumeId, setSelectedResumeId] = useState(null);
   const [dragX, setDragX] = useState(0);
   const [exiting, setExiting] = useState(null);
+  const [failedPhotoUrl, setFailedPhotoUrl] = useState(null);
   const dragging = useRef(false);
   const startX = useRef(0);
   const current = jobs[0];
@@ -75,12 +76,25 @@ export default function JobSwiper({ candidateId }) {
 
   const cardTransform = exiting ? `translateX(${exiting === 'right' ? '125%' : '-125%'}) rotate(${exiting === 'right' ? '12deg' : '-12deg'})` : `translateX(${dragX}px) rotate(${dragX / 28}deg)`;
   const selectedResume = resumes.find((resume) => resume.id === selectedResumeId);
+  const hasJobPhoto = current.photo_url && current.photo_url !== failedPhotoUrl;
   return (
     <section className="candidate-swipe-screen recruiter-swipe-screen" aria-label="Job review">
       <div className="recruiter-swipe-progress"><span>{jobs.length} opportunities waiting</span><span>Drag or use the buttons</span></div>
       <article className={`recruiter-swipe-card${exiting ? ' is-exiting' : ''}`} style={{ transform: cardTransform }} onPointerDown={beginDrag} onPointerMove={moveDrag} onPointerUp={endDrag} onPointerCancel={endDrag}>
         <div className="candidate-swipe-company" style={{ '--company-accent': current.accent }}>
-          <span className="recruiter-swipe-label">Company</span><span className="recruiter-swipe-avatar" aria-hidden="true">{current.initials}</span>
+          {hasJobPhoto ? (
+            <img
+              key={current.photo_url}
+              className="candidate-swipe-job-photo"
+              src={current.photo_url}
+              alt={`${current.title} at ${current.company}`}
+              draggable={false}
+              onError={() => setFailedPhotoUrl(current.photo_url)}
+            />
+          ) : (
+            <span className="recruiter-swipe-avatar" aria-hidden="true">{current.initials}</span>
+          )}
+          <span className="recruiter-swipe-label">{hasJobPhoto ? 'Job photo' : 'Company'}</span>
           {Math.abs(dragX) > 55 && <span className={`recruiter-swipe-stamp ${dragX > 0 ? 'offer' : 'reject'}`}>{dragX > 0 ? 'Apply' : 'Pass'}</span>}
         </div>
         <div className="recruiter-swipe-details candidate-swipe-details">
