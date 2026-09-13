@@ -34,7 +34,7 @@ emails are not accepted as authorization.
 
 POST requests require the CSRF cookie and `X-CSRFToken` header, obtained through
 `GET /api/auth/csrf/`. Read state is stored in the database. The applicant's
-`/#notifications` tab and navigation badge refresh every 15 seconds.
+`/#notifications` tab and navigation badge refresh every 3 seconds.
 
 Changing `Application.stage` for an applied application creates a status
 notification through a SQLite trigger (migration `0005`). This includes ORM
@@ -43,9 +43,9 @@ Repeated writes of the same stage do not create duplicates, and rolling back
 the change also rolls back its notification. Future SQLite migrations that
 rebuild `api_application` must reinstall this trigger.
 
-Creating a `Message` creates a notification for the other matched participant in
-the same transaction; bulk message inserts bypass that hook. Edits do not create
-alerts.
+Direct messages do not create notifications for either participant. Existing
+message notifications are excluded from notification lists and unread counts;
+messages remain available in the Messages tab.
 Notifications cover new events after installation, without backfilling history.
 
 Signed-in applicant requests resolve their candidate from the login session,

@@ -62,16 +62,10 @@ export function useNotifications(enabled, accountEmail) {
   return { items, loading, error, busy, refresh, markRead, unreadCount: items.filter((item) => !item.readAt).length };
 }
 
-export default function NotificationsPage({ notifications, user, messagesRoute = 'messages' }) {
+export default function NotificationsPage({ notifications }) {
   const [filter, setFilter] = useState('all');
   const { items, loading, error, busy, refresh, markRead, unreadCount } = notifications;
   const visibleItems = filter === 'unread' ? items.filter((item) => !item.readAt) : items;
-  const isRecruiter = user?.role === 'employer' || user?.role === 'recruiter';
-
-  async function openConversation(item) {
-    if (!item.readAt) await markRead(item.id);
-    window.location.hash = `${messagesRoute}?conversation=${item.applicationId}`;
-  }
 
   return (
     <>
@@ -79,7 +73,7 @@ export default function NotificationsPage({ notifications, user, messagesRoute =
         <div>
           <p className="eyebrow">Stay in the loop</p>
           <h1>Notifications</h1>
-          <p>{isRecruiter ? 'New messages from matched candidates.' : 'Application updates and new messages from recruiters.'}</p>
+          <p>Application status updates.</p>
         </div>
         <button className="secondary-button notifications-mark-all" type="button" disabled={!unreadCount || busy} onClick={() => markRead()}>
           Mark all as read
@@ -96,22 +90,21 @@ export default function NotificationsPage({ notifications, user, messagesRoute =
         {error && <div className="notification-error"><p role="alert">{error}</p><button className="secondary-button" type="button" onClick={() => refresh()}>Try again</button></div>}
         {!loading && !error && visibleItems.length === 0 && <div className="notifications-empty">
           <h2>{filter === 'unread' ? 'You’re all caught up.' : 'No notifications yet.'}</h2>
-          <p>{filter === 'unread' ? 'New updates will appear here.' : 'We’ll let you know when a message or application update arrives.'}</p>
+          <p>{filter === 'unread' ? 'New updates will appear here.' : 'Application status updates will appear here.'}</p>
         </div>}
         <div className="notification-list">
           {visibleItems.map((item) => (
             <article className={`notification-row ${item.readAt ? '' : 'unread'}`} key={item.id}>
-              <span className="company-mark" aria-hidden="true">{item.kind === 'message' ? '✉' : '↗'}</span>
+              <span className="company-mark" aria-hidden="true">↗</span>
               <div className="notification-content">
                 <div className="notification-title">
-                  <h2>{item.kind === 'message' ? `New message from ${item.sender}` : 'Application status updated'}</h2>
+                  <h2>Application status updated</h2>
                   {!item.readAt && <span className="status">Unread</span>}
                 </div>
                 <p className="notification-context">{item.jobTitle} · {item.company}</p>
                 <p className="notification-body">{item.body}</p>
                 <time dateTime={item.createdAt}>{new Date(item.createdAt).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })}</time>
                 <div className="notification-actions">
-                  {item.kind === 'message' && <button className="primary-button notification-message-link" type="button" disabled={busy} onClick={() => openConversation(item)}>Open conversation ↗</button>}
                   {!item.readAt && <button className="secondary-button" type="button" disabled={busy} onClick={() => markRead(item.id)} aria-label={`Mark notification about ${item.jobTitle} as read`}>Mark as read</button>}
                 </div>
               </div>

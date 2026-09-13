@@ -12,7 +12,7 @@ def user_notifications(request):
     # signed-in account email, not an editable browser-local contact email.
     return Notification.objects.filter(
         recipient__email__iexact=request.user.email,
-    ), None
+    ).exclude(kind=Notification.Kind.MESSAGE), None
 
 
 @require_GET

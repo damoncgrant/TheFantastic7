@@ -1,5 +1,5 @@
 from django.conf import settings
-from django.db import models, transaction
+from django.db import models
 from django.db.models import Q
 
 
@@ -114,22 +114,6 @@ class Message(models.Model):
 
     class Meta:
         ordering = ["created_at", "id"]
-
-    def save(self, *args, **kwargs):
-        using = kwargs.get("using") or self._state.db or "default"
-        with transaction.atomic(using=using):
-            is_new = self._state.adding
-            super().save(*args, **kwargs)
-            if is_new:
-                recipient = (
-                    self.application.candidate
-                    if self.sender_id == self.application.job.recruiter_id
-                    else self.application.job.recruiter
-                )
-                Notification.objects.using(using).create(
-                    recipient=recipient, application=self.application,
-                    message=self, kind=Notification.Kind.MESSAGE, body=self.body,
-                )
 
 
 class Notification(models.Model):
