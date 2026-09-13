@@ -51,6 +51,9 @@ export default function AppGate() {
     } finally {
       setUser(null);
       setStatus('guest');
+      // Clear any tab left in the URL so the next login lands on overview,
+      // not wherever this session happened to be when the user signed out.
+      window.location.hash = '';
     }
   }
 
@@ -75,6 +78,9 @@ export default function AppGate() {
   return (
     <AuthPage
       onAuthenticated={(authedUser, { isNewAccount } = {}) => {
+        // Defensive: also clear on the way in, in case a hash was left over
+        // from a previous session (e.g. a different account on this browser).
+        window.location.hash = '';
         setUser(authedUser);
         setStatus('authenticated');
         setShowResumeOnboarding(Boolean(isNewAccount || isResumeOnboardingPreview()));
