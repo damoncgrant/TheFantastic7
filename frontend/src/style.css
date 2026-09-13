@@ -281,6 +281,21 @@ a {
   font-size: 0.76rem;
 }
 
+.sidebar-logout {
+  margin-top: 9px;
+  padding: 7px;
+  border: 0;
+  color: var(--muted);
+  background: transparent;
+  font-size: 0.76rem;
+  text-align: left;
+}
+
+.sidebar-logout:hover,
+.sidebar-logout:focus-visible {
+  color: var(--cream);
+}
+
 .avatar {
   width: 36px;
   height: 36px;
@@ -2703,7 +2718,8 @@ h2 {
   }
 
   .recruiter-account,
-  .workspace-label {
+  .workspace-label,
+  .sidebar-logout {
     display: none;
   }
 
@@ -3000,8 +3016,13 @@ h2 {
 .resume-card-main h2 { margin: 0; font-size: 1.2rem; }
 .resume-card-main p, .resume-card-main span { color: var(--muted); font-size: .84rem; }
 .resume-card-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
-.resume-card-actions > button { width: 108px; }
-.default-badge { display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box; width: 108px; min-height: 34px; padding: 0 12px; color: var(--coffee); border-radius: 999px; background: #fff0f3; font-size: .72rem; font-weight: 700; }
+.resume-card-actions > button { white-space: nowrap; }
+.default-badge { display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box; min-height: 36px; padding: 0 14px; color: var(--coffee); border-radius: 999px; background: #fff0f3; font-size: .78rem; font-weight: 700; }
+.resume-card-actions .secondary-button:not(:disabled):hover,
+.resume-card-actions .secondary-button:not(:disabled):focus-visible { background: #fff0f3; }
+.resume-card-actions .danger-button { border-color: #f5cbd4; color: #b72f42; background: #ffeaed; box-shadow: none; }
+.resume-card-actions .danger-button:not(:disabled):hover,
+.resume-card-actions .danger-button:not(:disabled):focus-visible { border-color: #dc4b5c; color: #b72f42; background: #ffeaed; box-shadow: none; }
 .empty-resumes { display: grid; min-height: 340px; place-items: center; padding: 32px; border: 1px dashed #f0cbd4; border-radius: 22px; background: rgb(255 255 255 / 65%); text-align: center; }
 .empty-resumes > div { display: grid; justify-items: center; gap: 14px; max-width: 400px; }
 .empty-resumes p { color: var(--muted); line-height: 1.6; }
@@ -3520,6 +3541,12 @@ h2 {
   display: flex;
   align-items: center;
   gap: 18px;
+}
+
+.job-detail-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 14px;
 }
 
 .job-detail-identity p {

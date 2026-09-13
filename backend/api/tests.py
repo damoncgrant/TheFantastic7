@@ -94,6 +94,13 @@ class MatchingFlowTests(TestCase):
         self.assertEqual(application.stage, Application.Stage.REJECTED)
         self.assertEqual(application.recruiter_decision, Application.RecruiterDecision.REJECTED)
         self.assertIn("distributed systems", application.rejection_reason)
+        self.assertTrue(
+            Notification.objects.filter(
+                recipient=self.candidate,
+                application=application,
+                body__contains="distributed systems",
+            ).exists(),
+        )
 
     def test_candidate_can_unmatch_an_active_conversation(self):
         self.post(f"/api/jobs/{self.job.id}/swipe/", {"candidate_id": self.candidate.id, "decision": "right"})

@@ -172,6 +172,8 @@ export default function App({ user, onLogout }) {
             <small>{roleLabels[user.role] ?? user.role}</small>
           </span>
         </a>
+
+        <button type="button" className="sidebar-logout" onClick={onLogout}>Log out</button>
       </aside>
 
       <main className={`dashboard${activePage === 'resume' ? ' resume-dashboard' : ''}`} key={activePage}>
