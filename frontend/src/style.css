@@ -2186,11 +2186,11 @@ h2 {
 
 .conversation-application-actions {
   display: block;
-  margin: 2px 0 20px;
-  padding: 15px 17px;
-  border: 1px solid #cfe3df;
-  border-radius: 16px;
-  background: #f4fbf9;
+  margin: 4px 0 20px;
+  padding: 14px;
+  border: 1px solid #e1eaed;
+  border-radius: 14px;
+  background: #fbfcfd;
 }
 
 .conversation-application-actions > div:first-child { display: grid; gap: 4px; }
@@ -2205,17 +2205,31 @@ h2 {
 }
 
 .conversation-thread-side {
-  display: grid;
-  justify-items: end;
-  gap: 10px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
 }
 
 .conversation-action-button {
-  min-height: 40px;
-  padding-inline: 17px;
+  min-height: 36px;
+  padding-inline: 14px;
   border-radius: 999px;
-  font-weight: 800;
+  font-size: 0.78rem;
+  font-weight: 750;
   white-space: nowrap;
+}
+
+.conversation-thread-side .recruiter-offer-button {
+  background: var(--recruiter-teal) !important;
+  box-shadow: none;
+}
+
+.conversation-thread-side .recruiter-reject-button {
+  border-color: #f0c9d0;
+  color: #b8364e;
+  background: #fffafb;
 }
 
 .conversation-rejection-form {
@@ -2229,19 +2243,20 @@ h2 {
   display: grid;
   grid-column: 1;
   grid-row: 1 / span 2;
-  gap: 7px;
+  gap: 6px;
   min-width: 0;
-  color: #40556b;
+  color: #506679;
+  font-size: 0.84rem;
   font-weight: 700;
 }
 .conversation-rejection-form small { color: #70848b; font-size: 0.77rem; font-weight: 500; }
 .conversation-rejection-form textarea {
   width: 100%;
-  min-height: 96px;
+  min-height: 78px;
   resize: vertical;
-  border: 1px solid #bdd6d1;
-  border-radius: 16px;
-  padding: 13px 14px;
+  border: 1px solid #d9e3e6;
+  border-radius: 11px;
+  padding: 11px 12px;
   color: var(--recruiter-navy);
   background: #ffffff;
   box-shadow: inset 0 1px 2px rgb(20 52 77 / 5%);
@@ -2255,16 +2270,16 @@ h2 {
 
 .rejection-enter-button {
   width: auto;
-  min-height: 38px;
-  padding-inline: 15px;
+  min-height: 34px;
+  padding-inline: 13px;
   align-self: end;
   background: var(--recruiter-teal);
 }
 
 .rejection-cancel-button {
   width: auto;
-  min-height: 38px;
-  padding-inline: 15px;
+  min-height: 34px;
+  padding-inline: 13px;
   align-self: start;
   border-radius: 999px;
 }
