@@ -106,7 +106,7 @@ a {
   border-radius: 9px;
   color: var(--muted);
   font-size: 0.92rem;
-  transition: color 160ms ease, background 160ms ease;
+  transition: color 160ms ease, background 160ms ease, box-shadow 160ms ease;
 }
 
 .nav-link:hover,
@@ -114,6 +114,7 @@ a {
 .nav-link.active {
   color: var(--cream);
   background: #fff0f3;
+  box-shadow: inset 3px 0 var(--cream);
   outline: none;
 }
 
