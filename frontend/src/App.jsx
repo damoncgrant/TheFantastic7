@@ -16,14 +16,12 @@ import { removeCandidateProfilePhoto, uploadCandidateProfilePhoto } from './api.
 import { roleLabels, navigation } from './appData.js';
 import OverviewPage from './pages/OverviewPage.jsx';
 import ApplicationsPage from './pages/ApplicationsPage.jsx';
-import SavedJobsPage from './pages/SavedJobsPage.jsx';
 
 const pages = {
   overview: OverviewPage,
   applications: ApplicationsPage,
   messages: DMPage,
   resume: ResumeBuilderPage,
-  saved: SavedJobsPage,
   swipe: JobSwiper,
   profile: ProfilePage,
   notifications: NotificationsPage,

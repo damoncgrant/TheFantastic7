@@ -330,8 +330,7 @@ h2 {
 }
 
 .stat-card,
-.content-panel,
-.saved-card {
+.content-panel {
   border: 1px solid #f2e9ec;
   background: var(--panel);
   box-shadow: 0 12px 34px rgb(71 34 45 / 7%);
@@ -496,8 +495,7 @@ h2 {
   overflow-x: auto;
 }
 
-.filter-chip,
-.bookmark-button {
+.filter-chip {
   border: 1px solid #eadfe2;
   color: var(--muted);
   background: transparent;
@@ -541,8 +539,7 @@ h2 {
 }
 
 .resume-nameplate div > span,
-.resume-section p,
-.saved-card p {
+.resume-section p {
   color: var(--muted);
 }
 
@@ -595,56 +592,10 @@ h2 {
   font-size: 0.76rem;
 }
 
-.saved-grid {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 14px;
-  margin-top: 44px;
-}
-
-.saved-card {
-  display: flex;
-  flex-direction: column;
-  gap: 26px;
-  min-height: 300px;
-  padding: 24px;
-  border-radius: 22px;
-}
-
-.saved-card-top {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-
-.bookmark-button {
-  min-height: 34px;
-  padding: 0 10px;
-  border-radius: 8px;
-  color: var(--cream);
-  background: #fff5f7;
-  font-size: 0.74rem;
-}
-
-.saved-card h2 {
-  margin-bottom: 6px;
-  font-size: 1.15rem;
-}
-
-.saved-card p {
-  margin-bottom: 0;
-  font-size: 0.84rem;
-}
-
 .job-meta {
   display: flex;
   flex-wrap: wrap;
   gap: 7px;
-}
-
-.saved-card .secondary-button {
-  width: 100%;
-  margin-top: auto;
 }
 
 /* Recruiter-only dashboard components share the applicant app's visual tokens. */
@@ -2248,7 +2199,6 @@ h2 {
   }
 
   .resume-grid,
-  .saved-grid,
   .recruiter-candidate-grid {
     grid-template-columns: 1fr;
   }
@@ -2344,8 +2294,7 @@ h2 {
     width: 100%;
   }
 
-  .page-panel,
-  .saved-grid {
+  .page-panel {
     margin-top: 32px;
   }
 
