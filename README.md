@@ -105,6 +105,54 @@ pulling schema changes, run `python manage.py migrate` from `backend/` with the
 virtual environment active. `makemigrations` is only needed when intentionally
 changing a Django model, and the resulting migration should be committed.
 
+## Demo data scripts
+
+Run these from `backend/` with the virtual environment active:
+
+```sh
+# Prepare all 10 jobs, 10 candidates, resumes, applications, and photos.
+python manage.py seed_demo
+
+# Or seed each half separately (jobs must come first).
+python manage.py seed_demo_jobs
+python manage.py seed_demo_candidates
+
+# Check that everything needed for the demo exists.
+python manage.py demo_summary
+
+# Clear every database row. This asks you to type "clear" before continuing.
+python manage.py clear_local_data
+```
+
+The seed commands are repeatable: they update their own `@jobbler.demo` records
+instead of duplicating them. Images are copied from the version-controlled files
+under `backend/demo_assets/`; the seed commands do not access the web. Replace
+those files with your own JPG images while keeping the same filenames, then add
+`--refresh-images` to update an already-seeded database. Use `--no-images` to
+seed text-only records.
+
+For example, after replacing the files:
+
+```sh
+python manage.py seed_demo --refresh-images
+```
+
+See `backend/demo_assets/README.md` for the exact job and candidate filename
+mapping. Keep each image at or below 5 MB.
+
+The demo recruiter login is `recruiter@jobbler.demo` / `demo1234`. Every seeded
+candidate uses the same password and an email ending in `@jobbler.demo`.
+
+Three candidate logins you can use during the demo are:
+
+- Michael Scott: `michael.scott@jobbler.demo` / `demo1234`
+- Rachel Green: `rachel.green@jobbler.demo` / `demo1234`
+- Jake Peralta: `jake.peralta@jobbler.demo` / `demo1234`
+
+`clear_local_data` only targets the project's expected local SQLite database and
+does not remove uploaded files by default. Pass `--media` to remove those files
+too, and `--yes` only when you intentionally want to skip the confirmation.
+
 ## Checks
 
 ```sh
