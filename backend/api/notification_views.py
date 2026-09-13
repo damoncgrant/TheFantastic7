@@ -2,25 +2,22 @@ from django.http import JsonResponse
 from django.utils import timezone
 from django.views.decorators.http import require_GET, require_POST
 
-from .models import Notification, UserProfile
+from .models import Notification
 
 
-def applicant_notifications(request):
+def user_notifications(request):
     if not request.user.is_authenticated:
         return None, JsonResponse({"error": "Sign in to view notifications."}, status=401)
-    if request.user.role != "applicant":
-        return None, JsonResponse({"error": "Notifications are available to applicants."}, status=403)
     # Never accept a recipient ID from the client. Matching profiles use the
-    # login email, not the editable browser-local contact email.
+    # signed-in account email, not an editable browser-local contact email.
     return Notification.objects.filter(
         recipient__email__iexact=request.user.email,
-        recipient__role=UserProfile.Role.CANDIDATE,
     ), None
 
 
 @require_GET
 def notifications(request):
-    queryset, error = applicant_notifications(request)
+    queryset, error = user_notifications(request)
     if error is not None:
         return error
     records = list(queryset.select_related("application__job__company", "message__sender"))
@@ -41,7 +38,7 @@ def notifications(request):
 
 @require_POST
 def mark_read(request, notification_id):
-    queryset, error = applicant_notifications(request)
+    queryset, error = user_notifications(request)
     if error is not None:
         return error
     notification = queryset.filter(pk=notification_id).first()
@@ -53,7 +50,7 @@ def mark_read(request, notification_id):
 
 @require_POST
 def mark_all_read(request):
-    queryset, error = applicant_notifications(request)
+    queryset, error = user_notifications(request)
     if error is not None:
         return error
     queryset.filter(read_at__isnull=True).update(read_at=timezone.now())

@@ -1701,6 +1701,7 @@ h2 {
   line-height: 1.55;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 3;
+  line-clamp: 3;
 }
 
 .recruiter-swipe-skills {
@@ -2113,7 +2114,16 @@ h2 {
 }
 
 .notification-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
   margin-top: 14px;
+}
+
+.notification-message-link {
+  width: auto;
+  padding: 8px 12px;
+  font-size: .78rem;
 }
 
 .notification-actions button:disabled,
@@ -2607,6 +2617,18 @@ h2 {
   background: #fff0f3;
 }
 
+.conversation-row {
+  transition: transform 160ms ease, background 160ms ease, box-shadow 160ms ease;
+}
+
+.conversation-row:hover {
+  transform: translateX(3px);
+}
+
+.conversation-row.selected {
+  box-shadow: inset 4px 0 0 var(--cream);
+}
+
 .conversation-row:focus-visible {
   outline: 3px solid rgb(255 68 88 / 35%);
   outline-offset: -3px;
@@ -2616,6 +2638,7 @@ h2 {
   display: grid;
   gap: 12px;
   min-height: 180px;
+  padding: 4px 0;
 }
 
 .message-bubble {
@@ -2623,6 +2646,7 @@ h2 {
   max-width: min(78%, 620px);
   padding: 13px 16px;
   border-radius: 18px;
+  animation: message-pop 300ms cubic-bezier(.2, .9, .3, 1.25) both;
 }
 
 .message-bubble p {
@@ -2642,6 +2666,10 @@ h2 {
   color: var(--white);
   background: linear-gradient(100deg, var(--clay), var(--cream));
   border-bottom-right-radius: 4px;
+}
+
+.message-bubble.match-message {
+  box-shadow: 0 12px 28px rgb(255 68 88 / 14%);
 }
 
 .automated-label {
@@ -2682,6 +2710,139 @@ h2 {
   opacity: 0.55;
 }
 
+.message-inbox {
+  overflow: hidden;
+}
+
+.match-count,
+.thread-match-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 7px 10px;
+  border: 1px solid #ffd5dc;
+  border-radius: 999px;
+  color: var(--coffee);
+  background: #fff5f7;
+  font-size: .78rem;
+  font-weight: 750;
+}
+
+.thread-match-badge {
+  color: var(--ink);
+  background: #fffaf0;
+}
+
+.message-empty-state {
+  display: grid;
+  grid-template-columns: minmax(150px, 220px) minmax(0, 410px);
+  align-items: center;
+  justify-content: center;
+  gap: clamp(20px, 5vw, 54px);
+  min-height: 250px;
+  padding: 22px;
+  text-align: left;
+}
+
+.message-empty-state h3 {
+  margin: 8px 0;
+  font-size: 1.25rem;
+  letter-spacing: -.035em;
+}
+
+.message-empty-state p {
+  max-width: 340px;
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.55;
+}
+
+.match-emoji {
+  font-size: 1.2rem;
+}
+
+.message-empty-art {
+  width: 100%;
+  overflow: visible;
+}
+
+.message-path,
+.message-briefcase,
+.message-handshake {
+  fill: none;
+  stroke: var(--cream);
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.message-path { stroke-width: 3; stroke-dasharray: 8 9; animation: dash-travel 2.4s linear infinite; }
+.message-briefcase { stroke-width: 4; fill: #fff0f3; animation: briefcase-float 2.4s ease-in-out infinite; transform-origin: center; }
+.message-handshake { stroke-width: 4; animation: handshake-pop 2.4s ease-in-out infinite; transform-origin: center; }
+.message-star { fill: var(--clay); transform-origin: center; }
+.star-one { animation: star-twinkle 1.8s ease-in-out infinite; }
+.star-two { animation: star-twinkle 1.8s .7s ease-in-out infinite; }
+
+.match-celebration {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 0 0 18px;
+  padding: 12px 16px;
+  overflow: hidden;
+  border: 1px solid #ffd8a7;
+  border-radius: 14px;
+  background: linear-gradient(105deg, #fff8db, #fff0f3);
+  animation: celebration-in 450ms cubic-bezier(.2, .9, .3, 1.2) both;
+}
+
+.celebration-emoji { font-size: 1.55rem; letter-spacing: -7px; }
+.match-celebration div:not(.celebration-confetti) { display: grid; gap: 2px; }
+.match-celebration strong { font-size: .92rem; }
+.match-celebration span { color: var(--muted); font-size: .8rem; }
+.match-celebration button { z-index: 1; margin-left: auto; border: 0; color: var(--muted); background: transparent; font-size: 1.25rem; }
+.celebration-confetti { position: absolute; inset: 0; pointer-events: none; }
+.celebration-confetti i { position: absolute; top: -8px; width: 7px; height: 11px; border-radius: 3px; background: var(--cream); animation: confetti-fall 1.8s ease-in infinite; }
+.celebration-confetti i:nth-child(1) { left: 12%; background: #ffbf4e; }
+.celebration-confetti i:nth-child(2) { left: 28%; animation-delay: .3s; background: #73c9d0; }
+.celebration-confetti i:nth-child(3) { left: 49%; animation-delay: .7s; }
+.celebration-confetti i:nth-child(4) { left: 66%; animation-delay: .2s; background: #ffbf4e; }
+.celebration-confetti i:nth-child(5) { left: 81%; animation-delay: .55s; background: #73c9d0; }
+.celebration-confetti i:nth-child(6) { left: 94%; animation-delay: .9s; }
+
+/* Hiring workspace keeps Messages in the same navy, teal, and blue system. */
+.recruiter-dashboard .conversation-row:hover,
+.recruiter-dashboard .conversation-row.selected { background: #eaf5f7; }
+.recruiter-dashboard .conversation-row.selected { box-shadow: inset 4px 0 0 var(--recruiter-teal); }
+.recruiter-dashboard .match-count { border-color: #bfe6e2; color: #087b70; background: var(--recruiter-teal-light); }
+.recruiter-dashboard .thread-match-badge { border-color: #cbd9eb; color: var(--recruiter-navy); background: #edf4ff; }
+.recruiter-dashboard .message-bubble.employer { background: #e8f3f7; }
+.recruiter-dashboard .message-bubble.me { background: linear-gradient(100deg, var(--recruiter-teal), var(--recruiter-blue)); }
+.recruiter-dashboard .message-bubble.match-message { box-shadow: 0 12px 28px rgb(18 109 153 / 14%); }
+.recruiter-dashboard .message-composer input:focus { border-color: var(--recruiter-teal); outline-color: rgb(18 169 153 / 15%); }
+.recruiter-dashboard .message-path,
+.recruiter-dashboard .message-briefcase,
+.recruiter-dashboard .message-handshake { stroke: var(--recruiter-blue); }
+.recruiter-dashboard .message-briefcase { fill: #e8f3f7; }
+.recruiter-dashboard .message-star { fill: var(--recruiter-teal); }
+.recruiter-dashboard .match-celebration { border-color: #bfe6e2; background: linear-gradient(105deg, #e9fbf8, #edf4ff); }
+.recruiter-dashboard .celebration-confetti i { background: var(--recruiter-blue); }
+.recruiter-dashboard .celebration-confetti i:nth-child(1),
+.recruiter-dashboard .celebration-confetti i:nth-child(4) { background: #65d4c7; }
+.recruiter-dashboard .celebration-confetti i:nth-child(2),
+.recruiter-dashboard .celebration-confetti i:nth-child(5) { background: #79a9ee; }
+.recruiter-dashboard .notification-row.unread { border-color: #bfe6e2; background: #effaf9; }
+.recruiter-dashboard .notification-count { background: var(--recruiter-teal); }
+.recruiter-dashboard .notification-message-link { background: linear-gradient(100deg, var(--recruiter-teal), var(--recruiter-blue)); }
+
+@keyframes message-pop { from { opacity: 0; transform: scale(.9) translateY(7px); } to { opacity: 1; transform: scale(1) translateY(0); } }
+@keyframes briefcase-float { 50% { transform: translateY(-7px) rotate(-2deg); } }
+@keyframes handshake-pop { 50% { transform: scale(1.08); } }
+@keyframes star-twinkle { 50% { transform: scale(1.5); opacity: .45; } }
+@keyframes dash-travel { to { stroke-dashoffset: -34; } }
+@keyframes celebration-in { from { opacity: 0; transform: translateY(-10px) scale(.97); } to { opacity: 1; transform: translateY(0) scale(1); } }
+@keyframes confetti-fall { 0% { opacity: 0; transform: translateY(0) rotate(0); } 15% { opacity: 1; } 100% { opacity: 0; transform: translateY(88px) rotate(260deg); } }
+
 .sr-only {
   position: absolute;
   width: 1px;
@@ -2702,6 +2863,26 @@ h2 {
   .message-bubble {
     max-width: 92%;
   }
+
+  .message-empty-state {
+    grid-template-columns: 1fr;
+    gap: 4px;
+    text-align: center;
+  }
+
+  .message-empty-art { width: min(210px, 80%); margin: 0 auto; }
+  .thread-match-badge { display: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .conversation-row,
+  .message-bubble,
+  .message-path,
+  .message-briefcase,
+  .message-handshake,
+  .message-star,
+  .match-celebration,
+  .celebration-confetti i { animation: none; transition: none; }
 }
 
 /* First-resume onboarding keeps the login screen's compact, focused layout. */
