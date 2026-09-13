@@ -16,7 +16,7 @@ export async function fetchApplications(candidateId, options) {
     stage: application.stage,
     company: application.job.company.name,
     role: application.job.title,
-    date: new Date(application.applied_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }),
+    date: new Date(application.applied_at),
     status: application.stage_label,
     // Prefer the posting photo uploaded by the recruiter, then fall back to its company logo.
     profile: application.job.photo_url || application.job.company.logo_url,

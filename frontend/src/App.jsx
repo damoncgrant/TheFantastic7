@@ -5,11 +5,6 @@ import JobDetail from './Components/JobDetail.jsx';
 import ProfilePage from './ProfilePage';
 import { getInitials, getProfileStorageKey, loadProfile } from './profile';
 import ResumeBuilderPage from './resume_builder/ResumePage.jsx';
-
-
-// For this hackathon API, the active profile is provided explicitly.
-// Set VITE_CANDIDATE_ID in frontend/.env.local to a UserProfile primary key.
-const candidateId = import.meta.env.VITE_CANDIDATE_ID ?? 1;
 import { fetchApplications } from './applications';
 import NotificationsPage, { useNotifications } from './NotificationsPage';
 import { removeCandidateProfilePhoto, uploadCandidateProfilePhoto } from './api.js';

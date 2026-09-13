@@ -1,5 +1,8 @@
 export function ApplicationRow({ application, onSelectJob }) {
   const statusClass = application.status.toLowerCase();
+  const appliedDate = application.date instanceof Date
+    ? application.date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
+    : application.date;
 
   return (
     <article
@@ -24,7 +27,7 @@ export function ApplicationRow({ application, onSelectJob }) {
       )}
       <div className="application-details">
         <strong>{application.role}</strong>
-        <span>{application.company}{application.date ? ` • ${application.date}` : ''}</span>
+        <span>{application.company}{appliedDate ? ` • ${appliedDate}` : ''}</span>
       </div>
       <span className={`status ${statusClass}`}>
         {application.status}

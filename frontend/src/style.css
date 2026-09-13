@@ -118,6 +118,111 @@ a {
   outline: none;
 }
 
+.date-filter-group {
+  display: inline-flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.date-filter-label {
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 750;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.date-filter {
+  position: relative;
+  display: inline-flex;
+}
+
+.date-filter-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 38px;
+  padding: 0 14px 0 10px;
+  border: 1px solid #eadfe2;
+  border-radius: 999px;
+  color: var(--ink);
+  background: var(--white);
+  font-size: 0.84rem;
+  font-weight: 650;
+  white-space: nowrap;
+  transition: border-color 160ms ease, color 160ms ease, background 160ms ease;
+}
+
+.date-filter-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  font-size: 0.9rem;
+}
+
+.date-filter-button:hover,
+.date-filter-button:focus-visible {
+  border-color: var(--cream);
+  color: var(--cream);
+  outline: none;
+}
+
+.date-filter-button[aria-expanded="true"] {
+  border-color: transparent;
+  color: var(--white);
+  background: linear-gradient(100deg, var(--clay), var(--cream));
+}
+
+.date-popover {
+  position: absolute;
+  top: calc(100% + 10px);
+  left: 0;
+  z-index: 10;
+  display: grid;
+  gap: 14px;
+  width: 240px;
+  padding: 18px;
+  border: 1px solid #f2e9ec;
+  border-radius: 18px;
+  background: var(--panel);
+  box-shadow: 0 12px 34px rgb(71 34 45 / 12%);
+}
+
+.date-popover label {
+  display: grid;
+  gap: 7px;
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-weight: 650;
+}
+
+.date-popover input[type="date"] {
+  width: 100%;
+  min-height: 42px;
+  padding: 10px 12px;
+  border: 1px solid #eadfe2;
+  border-radius: 10px;
+  color: var(--ink);
+  background: var(--panel-light);
+  font: inherit;
+  font-weight: 400;
+}
+
+.date-popover input[type="date"]:focus-visible {
+  outline: 2px solid var(--coffee);
+  outline-offset: 2px;
+  border-color: var(--cream);
+}
+
+@media (max-width: 760px) {
+  .date-popover {
+    left: auto;
+    right: 0;
+  }
+}
+
 .sidebar-cta {
   display: flex;
   align-items: center;

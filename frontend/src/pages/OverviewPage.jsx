@@ -1,7 +1,22 @@
+import { useEffect, useState } from 'react';
 import PageHeader from '../Components/PageHeader.jsx';
 import { ApplicationRow, EmptyApplications } from '../Components/ApplicationRow.jsx';
 
+function greetingForTime(date) {
+  const hour = date.getHours();
+  if (hour < 12) return 'Good morning';
+  if (hour < 18) return 'Good afternoon';
+  return 'Good evening';
+}
+
 export default function OverviewPage({ profile, applications, applicationsLoading, onSelectJob }) {
+  const [now, setNow] = useState(() => new Date());
+
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(new Date()), 60_000);
+    return () => window.clearInterval(timer);
+  }, []);
+
   const applicationStats = [
     { label: 'Applications sent', value: applications.length },
     { label: 'Interviews', value: applications.filter((application) => application.stage === 'interview').length },
@@ -11,7 +26,7 @@ export default function OverviewPage({ profile, applications, applicationsLoadin
     <>
       <PageHeader
         eyebrow="Your job search, organized"
-        title={`Good morning, ${profile.name}.`}
+        title={`${greetingForTime(now)}, ${profile.name}.`}
         description="Keep moving toward work that fits your life."
         action={<a className="secondary-button button-link" href="#resume">Edit resume</a>}
       />
