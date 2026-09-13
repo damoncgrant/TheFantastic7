@@ -114,11 +114,15 @@ export function reviewCandidateApplication(applicationId, decision) {
 }
 
 export function fetchConversations(options) {
-  return apiRequest('/api/conversations/', options);
+  return apiRequest('/api/conversations/', { cache: 'no-store', ...options });
 }
 
 export function fetchMessages(applicationId, options) {
-  return apiRequest(`/api/applications/${applicationId}/messages/`, options);
+  return apiRequest(`/api/applications/${applicationId}/messages/`, { cache: 'no-store', ...options });
+}
+
+export function fetchUnreadMessageCount(options) {
+  return apiRequest('/api/messages/unread/', { cache: 'no-store', ...options });
 }
 
 export function sendMessage(applicationId, body) {
@@ -126,6 +130,10 @@ export function sendMessage(applicationId, body) {
     method: 'POST',
     body: JSON.stringify({ body }),
   });
+}
+
+export function markMessagesRead(applicationId) {
+  return apiRequest(`/api/applications/${applicationId}/messages/read/`, { method: 'POST' });
 }
 
 export async function createResume(payload) {

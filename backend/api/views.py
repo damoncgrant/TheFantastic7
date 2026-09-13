@@ -9,12 +9,13 @@ from django.db.models import Case, Count, IntegerField, Q, Value, When
 from django.http import FileResponse, HttpResponse, JsonResponse
 from django.middleware.csrf import get_token
 from django.shortcuts import get_object_or_404
+from django.utils import timezone
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_GET, require_http_methods, require_POST
 
 from .latex import LatexError, compile_png
 from .identity import ensure_user_profile
-from .models import Application, Company, Job, Message, Resume, UserProfile
+from .models import Application, Company, Job, Message, Notification, Resume, UserProfile
 from .resume_builder import build_resume as build_latex_resume
 
 
@@ -702,7 +703,7 @@ def recruiter_swipe(request, application_id):
     app.stage = Application.Stage.OFFER if data["decision"] == "right" else Application.Stage.REJECTED
     app.save(update_fields=["recruiter_decision", "stage", "updated_at"])
     if app.is_match:
-        Message.objects.create(
+        create_message(
             application=app,
             sender=recruiter,
             body=(
@@ -770,6 +771,25 @@ def messaging_participant(request, application_id):
     return app, user
 
 
+def create_message(application, sender, body):
+    """Create a message and the recipient's unread-message record together."""
+    recipient_id = (
+        application.candidate_id
+        if sender.id == application.job.recruiter_id
+        else application.job.recruiter_id
+    )
+    with transaction.atomic():
+        message = Message.objects.create(application=application, sender=sender, body=body)
+        Notification.objects.create(
+            recipient_id=recipient_id,
+            application=application,
+            message=message,
+            kind=Notification.Kind.MESSAGE,
+            body=body,
+        )
+    return message
+
+
 def serialize_conversation(application, participant):
     partner = application.job.recruiter if participant.id == application.candidate_id else application.candidate
     messages = list(application.messages.all())
@@ -799,7 +819,9 @@ def conversations(request):
         candidate_decision=Application.CandidateDecision.APPLIED,
         recruiter_decision=Application.RecruiterDecision.SELECTED,
     ).select_related("candidate", "job__company", "job__recruiter").prefetch_related("messages").order_by("-updated_at")
-    return JsonResponse({"conversations": [serialize_conversation(app, participant) for app in applications]})
+    response = JsonResponse({"conversations": [serialize_conversation(app, participant) for app in applications]})
+    response["Cache-Control"] = "no-store"
+    return response
 
 
 @require_GET
@@ -807,7 +829,23 @@ def messages(request, application_id):
     app, user_or_response = messaging_participant(request, application_id)
     if app is None:
         return user_or_response
-    return JsonResponse({"messages": [{"id": msg.id, "sender_id": msg.sender_id, "body": msg.body, "created_at": msg.created_at.isoformat()} for msg in app.messages.all()]})
+    response = JsonResponse({"messages": [{"id": msg.id, "sender_id": msg.sender_id, "body": msg.body, "created_at": msg.created_at.isoformat()} for msg in app.messages.all()]})
+    response["Cache-Control"] = "no-store"
+    return response
+
+
+@require_POST
+def mark_messages_read(request, application_id):
+    app, user_or_response = messaging_participant(request, application_id)
+    if app is None:
+        return user_or_response
+    Notification.objects.filter(
+        recipient=user_or_response,
+        application=app,
+        kind=Notification.Kind.MESSAGE,
+        read_at__isnull=True,
+    ).update(read_at=timezone.now())
+    return JsonResponse({"detail": "Messages marked as read."})
 
 
 @require_http_methods(["POST"])
@@ -821,7 +859,7 @@ def send_message(request, application_id):
     text = str(data.get("body", "")).strip()
     if not text:
         return error("body cannot be empty")
-    message = Message.objects.create(application=app, sender=user_or_response, body=text)
+    message = create_message(application=app, sender=user_or_response, body=text)
     return JsonResponse({"id": message.id, "sender_id": message.sender_id, "body": message.body, "created_at": message.created_at.isoformat()}, status=201)
 
 

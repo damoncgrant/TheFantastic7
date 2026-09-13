@@ -157,6 +157,7 @@ export default function App({ user, onLogout }) {
               key={item.id}
             >
               {item.label}
+              {item.id === 'messages' && notifications.unreadMessageCount > 0 && <span className="notification-count" aria-label={`${notifications.unreadMessageCount} unread messages`}>{notifications.unreadMessageCount}</span>}
               {item.id === 'notifications' && notifications.unreadCount > 0 && <span className="notification-count" aria-label={`${notifications.unreadCount} unread notifications`}>{notifications.unreadCount}</span>}
             </a>
           ))}

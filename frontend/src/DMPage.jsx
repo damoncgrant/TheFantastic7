@@ -1,5 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { fetchConversations, fetchMessages, sendMessage as sendMessageRequest } from './api.js';
+
+const messagePollInterval = 3000;
 
 function messagePreview(conversation, currentProfileId) {
   const message = conversation.latest_message;
@@ -39,7 +41,7 @@ function MatchCelebration({ onDismiss }) {
   );
 }
 
-export default function DMPage({ user }) {
+export default function DMPage({ user, notifications }) {
   const [conversations, setConversations] = useState([]);
   const [activeConversationId, setActiveConversationId] = useState(null);
   const [messages, setMessages] = useState([]);
@@ -49,6 +51,7 @@ export default function DMPage({ user }) {
   const [sending, setSending] = useState(false);
   const [error, setError] = useState('');
   const [showCelebration, setShowCelebration] = useState(false);
+  const lastReadMessageId = useRef(null);
 
   const activeConversation = conversations.find((conversation) => conversation.application_id === activeConversationId);
   const currentProfileId = user?.profile_id ?? user?.candidateId;
@@ -57,13 +60,16 @@ export default function DMPage({ user }) {
 
   useEffect(() => {
     const controller = new AbortController();
-    async function loadConversations() {
+    let timer;
+    let initialLoad = true;
+
+    async function pollConversations() {
       try {
-        setLoading(true);
-        setError('');
+        if (initialLoad) setLoading(true);
         const data = await fetchConversations({ signal: controller.signal });
         if (controller.signal.aborted) return;
         setConversations(data.conversations);
+        setError('');
         setActiveConversationId((current) => (
           current
           ?? data.conversations.find((conversation) => conversation.application_id === requestedConversationId)?.application_id
@@ -73,34 +79,61 @@ export default function DMPage({ user }) {
       } catch (loadError) {
         if (loadError.name !== 'AbortError') setError(loadError.message || 'Could not load messages.');
       } finally {
-        if (!controller.signal.aborted) setLoading(false);
+        if (!controller.signal.aborted) {
+          if (initialLoad) setLoading(false);
+          initialLoad = false;
+          timer = window.setTimeout(pollConversations, messagePollInterval);
+        }
       }
     }
-    loadConversations();
-    return () => controller.abort();
+    pollConversations();
+    return () => {
+      controller.abort();
+      window.clearTimeout(timer);
+    };
   }, [requestedConversationId]);
 
   useEffect(() => {
     if (!activeConversationId) {
       setMessages([]);
+      setThreadLoading(false);
       return undefined;
     }
     const controller = new AbortController();
-    async function loadThread() {
+    let timer;
+    let initialLoad = true;
+
+    async function pollThread() {
       try {
-        setThreadLoading(true);
-        setError('');
+        if (initialLoad) setThreadLoading(true);
         const data = await fetchMessages(activeConversationId, { signal: controller.signal });
-        if (!controller.signal.aborted) setMessages(data.messages);
+        if (!controller.signal.aborted) {
+          setMessages(data.messages);
+          setError('');
+          const latestIncomingMessage = [...data.messages]
+            .reverse()
+            .find((message) => String(message.sender_id) !== String(currentProfileId));
+          if (latestIncomingMessage && latestIncomingMessage.id !== lastReadMessageId.current) {
+            lastReadMessageId.current = latestIncomingMessage.id;
+            notifications?.markMessagesRead(activeConversationId);
+          }
+        }
       } catch (loadError) {
         if (loadError.name !== 'AbortError') setError(loadError.message || 'Could not load this conversation.');
       } finally {
-        if (!controller.signal.aborted) setThreadLoading(false);
+        if (!controller.signal.aborted) {
+          if (initialLoad) setThreadLoading(false);
+          initialLoad = false;
+          timer = window.setTimeout(pollThread, messagePollInterval);
+        }
       }
     }
-    loadThread();
-    return () => controller.abort();
-  }, [activeConversationId]);
+    pollThread();
+    return () => {
+      controller.abort();
+      window.clearTimeout(timer);
+    };
+  }, [activeConversationId, currentProfileId, notifications?.markMessagesRead]);
 
   useEffect(() => {
     if (isRecruiter || messages.length !== 1 || !activeConversationId) return;

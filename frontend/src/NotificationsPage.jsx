@@ -1,20 +1,30 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { apiRequest, fetchCsrf } from './api';
+import {
+  apiRequest,
+  fetchCsrf,
+  fetchUnreadMessageCount,
+  markMessagesRead as markConversationMessagesRead,
+} from './api';
 
 export function useNotifications(enabled, accountEmail) {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(enabled);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
+  const [unreadMessageCount, setUnreadMessageCount] = useState(0);
   const requestId = useRef(0);
 
   const refresh = useCallback(async (signal) => {
     const id = ++requestId.current;
     try {
-      const data = await apiRequest('/api/notifications/', { signal });
+      const [data, messageData] = await Promise.all([
+        apiRequest('/api/notifications/', { signal }),
+        fetchUnreadMessageCount({ signal }),
+      ]);
       if (!Array.isArray(data.notifications)) throw new Error('Could not load notifications. Please try again.');
       if (id === requestId.current) {
         setItems(data.notifications);
+        setUnreadMessageCount(Number(messageData.unreadMessageCount) || 0);
         setError('');
       }
     } catch (err) {
@@ -26,6 +36,7 @@ export function useNotifications(enabled, accountEmail) {
 
   useEffect(() => {
     setItems([]);
+    setUnreadMessageCount(0);
     setError('');
     setLoading(enabled);
     if (!enabled) return;
@@ -59,7 +70,27 @@ export function useNotifications(enabled, accountEmail) {
     }
   }
 
-  return { items, loading, error, busy, refresh, markRead, unreadCount: items.filter((item) => !item.readAt).length };
+  const markMessagesRead = useCallback(async (applicationId) => {
+    try {
+      await fetchCsrf();
+      await markConversationMessagesRead(applicationId);
+      await refresh();
+    } catch {
+      // The next poll will retry the badge state without disrupting the inbox.
+    }
+  }, [refresh]);
+
+  return {
+    items,
+    loading,
+    error,
+    busy,
+    refresh,
+    markRead,
+    markMessagesRead,
+    unreadCount: items.filter((item) => !item.readAt).length,
+    unreadMessageCount,
+  };
 }
 
 export default function NotificationsPage({ notifications }) {

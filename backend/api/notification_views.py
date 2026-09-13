@@ -12,12 +12,19 @@ def user_notifications(request):
     # signed-in account email, not an editable browser-local contact email.
     return Notification.objects.filter(
         recipient__email__iexact=request.user.email,
-    ).exclude(kind=Notification.Kind.MESSAGE), None
+    ), None
+
+
+def status_notifications(request):
+    queryset, error = user_notifications(request)
+    if error is not None:
+        return None, error
+    return queryset.exclude(kind=Notification.Kind.MESSAGE), None
 
 
 @require_GET
 def notifications(request):
-    queryset, error = user_notifications(request)
+    queryset, error = status_notifications(request)
     if error is not None:
         return error
     records = list(queryset.select_related("application__job__company", "message__sender"))
@@ -36,9 +43,24 @@ def notifications(request):
     })
 
 
+@require_GET
+def unread_messages(request):
+    queryset, error = user_notifications(request)
+    if error is not None:
+        return error
+    response = JsonResponse({
+        "unreadMessageCount": queryset.filter(
+            kind=Notification.Kind.MESSAGE,
+            read_at__isnull=True,
+        ).count(),
+    })
+    response["Cache-Control"] = "no-store"
+    return response
+
+
 @require_POST
 def mark_read(request, notification_id):
-    queryset, error = user_notifications(request)
+    queryset, error = status_notifications(request)
     if error is not None:
         return error
     notification = queryset.filter(pk=notification_id).first()
@@ -50,7 +72,7 @@ def mark_read(request, notification_id):
 
 @require_POST
 def mark_all_read(request):
-    queryset, error = user_notifications(request)
+    queryset, error = status_notifications(request)
     if error is not None:
         return error
     queryset.filter(read_at__isnull=True).update(read_at=timezone.now())
