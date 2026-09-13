@@ -28,6 +28,7 @@ export default function ResumePage() {
   const [editingResume, setEditingResume] = useState(null);
   const [showCreateOptions, setShowCreateOptions] = useState(false);
   const request = useRef(null);
+  const deletingResumes = useRef(new Set());
   const fileInput = useRef(null);
   const createMenu = useRef(null);
 
@@ -127,6 +128,20 @@ export default function ResumePage() {
     } catch (err) { setError(err.message || 'Could not save your resume.'); throw err; }
   }
 
+  async function copyBuilderResume({ name, data }) {
+    try {
+      await saveToLibrary('/api/resumes/', 'POST', { name: `${name} Copy`, builderData: data });
+      closeResume();
+    } catch (err) { setError(err.message || 'Could not copy your resume.'); }
+  }
+
+  async function copyImportedResume({ name, latex }) {
+    try {
+      await saveToLibrary('/api/resumes/', 'POST', { name: `${name} Copy`, latex });
+      closeResume();
+    } catch (err) { setError(err.message || 'Could not copy your resume.'); }
+  }
+
   async function setDefault(id) {
     try {
       await fetchCsrf();
@@ -137,8 +152,10 @@ export default function ResumePage() {
   }
 
   async function deleteResume(id) {
+    if (deletingResumes.current.has(id)) return;
     const resume = resumes.find((item) => item.id === id);
     if (!resume || !window.confirm(`Delete “${resume.name}”? This cannot be undone.`)) return;
+    deletingResumes.current.add(id);
     const previousResumes = resumes;
     setResumes((current) => {
       const remaining = current.filter((item) => item.id !== id);
@@ -151,6 +168,8 @@ export default function ResumePage() {
     } catch (err) {
       setResumes(previousResumes);
       setError(err.message || 'Could not delete that resume.');
+    } finally {
+      deletingResumes.current.delete(id);
     }
   }
 
@@ -163,16 +182,17 @@ export default function ResumePage() {
     {busy && <p role="status">Compiling your resume. This may take up to 40 seconds.</p>}
     {error && <div role="alert" className="error"><p>{error}</p>{details && <details><summary>Compiler details</summary><pre>{details}</pre></details>}</div>}
     {editingResume && (busy || imageUrl) && <section className={`preview${busy ? ' is-loading' : ''}`} aria-label="Resume preview"><div className="preview-heading"><h2>Resume preview</h2>{imageUrl && !busy && <a className="primary-button" href={imageUrl} download={imageName}>Download image</a>}</div>{busy ? <div className="resume-preview-loading" role="status"><span className="loading-spinner" aria-hidden="true" /><span>Rendering your resume…</span></div> : <img className="resume-preview-image" src={imageUrl} alt="Rendered resume preview" />}</section>}
-    {!loading && (editingResume ? builderResume.source === 'latex' ? <LatexResumeEditor key={builderResume.id} busy={busy} initialName={builderResume.name} initialLatex={builderResume.latex} onSave={saveImportedResume} onRender={(latex) => renderLatex(latex, `${builderResume.name}.png`)} onClose={closeResume} hideClose /> : <ResumeBuilder key={builderResume.id || 'new'} busy={busy} initialResume={builderResume.data} initialName={builderResume.name} onSave={saveResume} onRender={renderResume} onClose={closeResume} hideClose closeOnSave /> : resumes.length === 0 ? <section className="empty-resumes"><div><h2>Create your first resume</h2><p>Start with the builder, then save tailored versions here.</p><div className="resume-create-control" ref={createMenu}><button onClick={() => setShowCreateOptions((current) => !current)} disabled={busy}>Create new resume</button>{createOptions}</div></div></section> : <section className="resume-library" aria-label="Saved resumes">{resumes.map((resume) => <article className={`resume-card${resume.isDefault ? ' is-default' : ''}`} key={resume.id}><button className="resume-card-main" onClick={() => openResume(resume)} aria-label={`Edit ${resume.name}`}><div><h2>{resume.name}</h2><p>{resume.source === 'latex' ? 'Imported LaTeX resume' : resume.data.contact.name || 'No contact name yet'}</p></div><span>Updated {displayDate(resume.updatedAt)}</span></button><div className="resume-card-actions">{resume.isDefault ? <span className="default-badge">Default</span> : <button className="secondary small-button" onClick={() => setDefault(resume.id)}>Set as default</button>}<button className="secondary small-button" onClick={() => openResume(resume)}>Edit</button><button className="remove-button" onClick={() => deleteResume(resume.id)}>Delete</button></div></article>)}</section>)}
+    {!loading && (editingResume ? builderResume.source === 'latex' ? <LatexResumeEditor key={builderResume.id} busy={busy} initialName={builderResume.name} initialLatex={builderResume.latex} onSave={saveImportedResume} onRender={(latex) => renderLatex(latex, `${builderResume.name}.png`)} onCopy={copyImportedResume} onClose={closeResume} hideClose /> : <ResumeBuilder key={builderResume.id || 'new'} busy={busy} initialResume={builderResume.data} initialName={builderResume.name} onSave={saveResume} onRender={renderResume} onCopy={builderResume.id ? copyBuilderResume : undefined} onClose={closeResume} hideClose closeOnSave /> : resumes.length === 0 ? <section className="empty-resumes"><div><h2>Create your first resume</h2><p>Start with the builder, then save tailored versions here.</p><div className="resume-create-control" ref={createMenu}><button onClick={() => setShowCreateOptions((current) => !current)} disabled={busy}>Create new resume</button>{createOptions}</div></div></section> : <section className="resume-library" aria-label="Saved resumes">{resumes.map((resume) => <article className={`resume-card${resume.isDefault ? ' is-default' : ''}`} key={resume.id}><button className="resume-card-main" onClick={() => openResume(resume)} aria-label={`Edit ${resume.name}`}><div><h2>{resume.name}</h2><p>{resume.source === 'latex' ? 'Imported LaTeX resume' : resume.data.contact.name || 'No contact name yet'}</p></div><span>Updated {displayDate(resume.updatedAt)}</span></button><div className="resume-card-actions">{resume.isDefault ? <span className="default-badge">Default</span> : <button className="secondary small-button" onClick={() => setDefault(resume.id)}>Set as default</button>}<button className="secondary small-button" onClick={() => openResume(resume)}>Edit</button><button className="remove-button" onClick={() => deleteResume(resume.id)}>Delete</button></div></article>)}</section>)}
   </section>;
 }
 
-function LatexResumeEditor({ busy, initialName, initialLatex, onSave, onRender, onClose, hideClose = false }) {
+function LatexResumeEditor({ busy, initialName, initialLatex, onSave, onRender, onCopy, onClose, hideClose = false }) {
   const [name, setName] = useState(initialName);
   const [latex, setLatex] = useState(initialLatex || '');
   const [saved, setSaved] = useState(false);
   const save = async (showStatus = true) => { await onSave({ name: name.trim() || 'Imported resume', latex }); if (showStatus) setSaved(true); };
   const saveAndRender = async () => { await save(false); onRender(latex); };
   const saveAndClose = async () => { await save(); onClose(); };
-  return <section className="builder" aria-label="LaTeX resume editor"><div className="builder-heading"><div><h2>Edit imported LaTeX</h2><p>Your source is saved with this resume and can be edited or rendered again.</p></div>{!hideClose && <button className="secondary" onClick={onClose} disabled={busy}>Back to resumes</button>}</div><div className="builder-scroll"><label className="field"><span>Resume name</span><input value={name} onChange={(event) => setName(event.target.value)} /></label><label className="field latex-source"><span>LaTeX source</span><textarea value={latex} onChange={(event) => setLatex(event.target.value)} rows="20" spellCheck="false" /></label></div><div className="builder-actions">{saved && <span className="save-status" role="status">Saved</span>}<button className="render-button" onClick={saveAndRender} disabled={busy}>{busy ? 'Rendering…' : 'Render'}</button><button className="secondary-button" onClick={saveAndClose} disabled={busy}>Save resume</button></div></section>;
+  const copy = async () => { await onCopy({ name: name.trim() || 'Imported resume', latex }); };
+  return <section className="builder" aria-label="LaTeX resume editor"><div className="builder-heading"><div><h2>Edit imported LaTeX</h2><p>Your source is saved with this resume and can be edited or rendered again.</p></div>{!hideClose && <button className="secondary" onClick={onClose} disabled={busy}>Back to resumes</button>}</div><div className="builder-scroll"><label className="field"><span>Resume name</span><input value={name} onChange={(event) => setName(event.target.value)} /></label><label className="field latex-source"><span>LaTeX source</span><textarea value={latex} onChange={(event) => setLatex(event.target.value)} rows="20" spellCheck="false" /></label></div><div className="builder-actions">{saved && <span className="save-status" role="status">Saved</span>}<button className="secondary-button" onClick={copy} disabled={busy}>Make a copy</button><button className="render-button" onClick={saveAndRender} disabled={busy}>{busy ? 'Rendering…' : 'Render'}</button><button className="secondary-button" onClick={saveAndClose} disabled={busy}>Save resume</button></div></section>;
 }

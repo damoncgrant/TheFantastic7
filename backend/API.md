@@ -16,16 +16,17 @@ Recruiter flow:
 
 Messaging is guarded by a successful match:
 
-- `GET /api/applications/<application_id>/messages/?user_id=<id>`
-- `POST /api/applications/<application_id>/messages/send/` with `{"user_id": 1, "body": "Hello"}`
+- `GET /api/conversations/` lists the signed-in person's matched conversations.
+- `GET /api/applications/<application_id>/messages/`
+- `POST /api/applications/<application_id>/messages/send/` with `{"body": "Hello"}`
 
-Both endpoints return `403` until the recruiter has selected an applicant, and also reject non-participants.
+Message endpoints use the signed-in session, return `403` until the recruiter has selected an applicant, and reject non-participants.
 
-## Applicant notifications
+## Notifications
 
-Notifications use the authenticated Django session. Only applicants can access
-their own notifications; recipient IDs and browser-local profile emails are not
-accepted as authorization.
+Notifications use the authenticated Django session. Applicants and recruiters
+can access only their own notifications; recipient IDs and browser-local profile
+emails are not accepted as authorization.
 
 - `GET /api/notifications/` returns newest-first `notifications` and `unreadCount`.
 - `POST /api/notifications/<id>/read/` marks one notification as read.
@@ -42,9 +43,9 @@ Repeated writes of the same stage do not create duplicates, and rolling back
 the change also rolls back its notification. Future SQLite migrations that
 rebuild `api_application` must reinstall this trigger.
 
-Creating a `Message` from that job's recruiter through `save()`/`objects.create()`
-creates a message notification in the same transaction; bulk message inserts
-bypass that hook. Edits and applicant replies do not create alerts.
+Creating a `Message` creates a notification for the other matched participant in
+the same transaction; bulk message inserts bypass that hook. Edits do not create
+alerts.
 Notifications cover new events after installation, without backfilling history.
 
 Signed-in applicant requests resolve their candidate from the login session,

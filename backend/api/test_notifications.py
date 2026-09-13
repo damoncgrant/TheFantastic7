@@ -68,18 +68,20 @@ class NotificationTests(TestCase):
         self.application.refresh_from_db()
         self.assertEqual(self.application.stage, "offer")
 
-    def test_only_new_recruiter_messages_notify(self):
-        Message.objects.create(application=self.application, sender=self.candidate, body="Hello")
-        self.assertFalse(Notification.objects.exists())
+    def test_each_new_message_notifies_the_other_participant(self):
+        candidate_message = Message.objects.create(application=self.application, sender=self.candidate, body="Hello")
+        recruiter_notification = Notification.objects.get()
+        self.assertEqual(recruiter_notification.message, candidate_message)
+        self.assertEqual(recruiter_notification.recipient, self.recruiter)
         message = Message.objects.create(application=self.application, sender=self.recruiter, body="Interview tomorrow?")
-        notification = Notification.objects.get()
+        notification = Notification.objects.get(message=message)
         self.assertEqual(notification.message, message)
         self.assertEqual(notification.recipient, self.candidate)
         self.assertEqual(notification.body, "Interview tomorrow?")
         self.assertEqual(notification.kind, "message")
         message.body = "Edited message"
         message.save()
-        self.assertEqual(Notification.objects.count(), 1)
+        self.assertEqual(Notification.objects.count(), 2)
 
     def test_rolled_back_events_do_not_leave_notifications(self):
         with self.assertRaises(RuntimeError):
@@ -134,7 +136,7 @@ class NotificationTests(TestCase):
         self.client.logout()
         self.assertEqual(self.client.get("/api/notifications/").status_code, 401)
         self.client.force_login(self.recruiter_user)
-        self.assertEqual(self.client.get("/api/notifications/").status_code, 403)
+        self.assertEqual(self.client.get("/api/notifications/").status_code, 200)
         self.client.force_login(self.user)
         self.assertEqual(self.client.get("/api/notifications/read-all/").status_code, 405)
         client = Client(enforce_csrf_checks=True)

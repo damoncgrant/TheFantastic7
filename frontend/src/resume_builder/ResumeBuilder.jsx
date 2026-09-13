@@ -27,7 +27,7 @@ function Field({ label, value, onChange, multiline = false, placeholder = '' }) 
   return <label className="field"><span>{label}</span>{multiline ? <textarea {...props} rows="3" /> : <input {...props} />}</label>;
 }
 
-export default function ResumeBuilder({ busy, initialResume, initialName, onSave, onRender, onClose, hideRender = false, hideClose = false, closeOnSave = false }) {
+export default function ResumeBuilder({ busy, initialResume, initialName, onSave, onRender, onCopy, onClose, hideRender = false, hideClose = false, closeOnSave = false }) {
   const [resume, setResume] = useState(() => normalizeResume(initialResume));
   const [name, setName] = useState(initialName || 'Untitled resume');
   const [saved, setSaved] = useState(false);
@@ -42,6 +42,7 @@ export default function ResumeBuilder({ busy, initialResume, initialName, onSave
   };
   const saveAndRender = async () => { await save(false); onRender(resume); };
   const saveAndClose = async () => { await save(); onClose(); };
+  const copy = async () => { await onCopy({ name: name.trim() || 'Untitled resume', data: resume }); };
 
   return <section className="builder" aria-label="Resume builder">
     <div className="builder-heading"><div><h2>Build your resume</h2><p>Fields follow Jake’s resume structure. Leave any optional section blank to omit it.</p></div>{!hideClose && <button className="secondary-button" onClick={onClose} disabled={busy}>Back to resumes</button>}</div>
@@ -74,7 +75,7 @@ export default function ResumeBuilder({ busy, initialResume, initialName, onSave
         <Field label="Developer Tools" value={resume.skills.tools} onChange={(value) => updateSkills('tools', value)} placeholder="Git, Docker, VS Code" /><Field label="Libraries" value={resume.skills.libraries} onChange={(value) => updateSkills('libraries', value)} placeholder="pandas, NumPy" />
       </div></section>
     </div>
-    <div className="builder-actions">{saved && <span className="save-status" role="status">Saved</span>}{!hideRender && <button className="render-button" onClick={saveAndRender} disabled={busy}>{busy ? 'Rendering…' : 'Render'}</button>}<button className={hideRender ? 'primary-button' : 'secondary-button'} onClick={closeOnSave ? saveAndClose : save} disabled={busy}>Save resume</button></div>
+    <div className="builder-actions">{saved && <span className="save-status" role="status">Saved</span>}{onCopy && <button className="secondary-button" onClick={copy} disabled={busy}>Make a copy</button>}{!hideRender && <button className="render-button" onClick={saveAndRender} disabled={busy}>{busy ? 'Rendering…' : 'Render'}</button>}<button className={hideRender ? 'primary-button' : 'secondary-button'} onClick={closeOnSave ? saveAndClose : save} disabled={busy}>Save resume</button></div>
   </section>;
 }
 

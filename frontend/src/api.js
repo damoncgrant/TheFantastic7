@@ -113,6 +113,21 @@ export function reviewCandidateApplication(applicationId, decision) {
   });
 }
 
+export function fetchConversations(options) {
+  return apiRequest('/api/conversations/', options);
+}
+
+export function fetchMessages(applicationId, options) {
+  return apiRequest(`/api/applications/${applicationId}/messages/`, options);
+}
+
+export function sendMessage(applicationId, body) {
+  return apiRequest(`/api/applications/${applicationId}/messages/send/`, {
+    method: 'POST',
+    body: JSON.stringify({ body }),
+  });
+}
+
 export async function createResume(payload) {
   await fetchCsrf();
   return apiRequest('/api/resumes/', { method: 'POST', body: JSON.stringify(payload) });
