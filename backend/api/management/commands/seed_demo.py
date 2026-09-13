@@ -12,8 +12,8 @@ class Command(BaseCommand):
     help = "Prepare the complete Jobbler comedy demo: jobs, candidates, resumes, applications, and photos."
 
     def add_arguments(self, parser):
-        parser.add_argument("--no-images", action="store_true", help="Skip all web image downloads.")
-        parser.add_argument("--refresh-images", action="store_true", help="Replace existing demo photos.")
+        parser.add_argument("--no-images", action="store_true", help="Skip copying local demo images.")
+        parser.add_argument("--refresh-images", action="store_true", help="Replace media photos from demo_assets.")
 
     def handle(self, *args, **options):
         include_images = not options["no_images"]

@@ -1,4 +1,6 @@
+import tempfile
 from io import StringIO
+from pathlib import Path
 
 from django.contrib.auth import get_user_model
 from django.core.management import call_command
@@ -38,3 +40,13 @@ class DemoSeedCommandTests(TestCase):
         self.assertIn("✓ Candidates: 10/10", output.getvalue())
         self.assertIn("✓ Resumes: 10/10", output.getvalue())
         self.assertIn("✓ Applications: 10/10", output.getvalue())
+
+    def test_seed_copies_every_local_asset_into_media_storage(self):
+        with tempfile.TemporaryDirectory() as media_root, self.settings(MEDIA_ROOT=media_root):
+            call_command("seed_demo", stdout=StringIO())
+
+            jobs = Job.objects.filter(title__in=[job["title"] for job in JOBS])
+            candidates = UserProfile.objects.filter(email__in=[candidate["email"] for candidate in CANDIDATES])
+            self.assertEqual(jobs.exclude(photo="").count(), 10)
+            self.assertEqual(candidates.exclude(photo="").count(), 10)
+            self.assertTrue(all(Path(item.photo.path).is_file() for item in [*jobs, *candidates]))

@@ -2,13 +2,7 @@
 
 from __future__ import annotations
 
-import json
-import time
-from dataclasses import dataclass
 from pathlib import Path
-from urllib.error import HTTPError
-from urllib.parse import quote
-from urllib.request import Request, urlopen
 
 from django.conf import settings
 from django.contrib.auth import get_user_model
@@ -21,33 +15,7 @@ from .resume_builder import build_resume
 DEMO_PASSWORD = "demo1234"
 DEMO_RECRUITER_EMAIL = "recruiter@jobbler.demo"
 MAX_IMAGE_BYTES = 5 * 1024 * 1024
-USER_AGENT = "JobblerHackathonDemo/1.0 (educational prototype)"
-
-
-@dataclass(frozen=True)
-class ImageSource:
-    download_url: str
-    source_page: str
-    credit: str
-
-
-def picsum(seed: str) -> ImageSource:
-    """Return a stable random web photo for a job card."""
-    return ImageSource(
-        download_url=f"https://picsum.photos/seed/{quote(seed)}/1200/800",
-        source_page="https://picsum.photos/",
-        credit="Lorem Picsum (photos sourced from Unsplash)",
-    )
-
-
-def commons(filename: str) -> ImageSource:
-    """Return an 800px Wikimedia Commons rendition of a known file."""
-    encoded = quote(filename.replace(" ", "_"))
-    return ImageSource(
-        download_url=f"https://commons.wikimedia.org/wiki/Special:Redirect/file/{encoded}?width=800",
-        source_page=f"https://commons.wikimedia.org/wiki/File:{encoded}",
-        credit="Wikimedia Commons; see the source page for creator and licence",
-    )
+DEMO_ASSET_ROOT = Path(settings.BASE_DIR) / "demo_assets"
 
 
 JOBS = [
@@ -59,7 +27,7 @@ JOBS = [
         "compensation": "$54,000 + unlimited beet-related anecdotes",
         "employment_type": "Full-time",
         "requirements": ["Office operations", "Sales", "Battlestar Galactica"],
-        "image": picsum("jobbler-dunder-mifflin-office"),
+        "image": "job_photos/demo-job-01.jpg",
     },
     {
         "company": "Central Perk",
@@ -69,7 +37,7 @@ JOBS = [
         "compensation": "$24/hour + tips and occasional acoustic sets",
         "employment_type": "Part-time",
         "requirements": ["Customer service", "Latte art", "Sarcasm tolerance"],
-        "image": picsum("jobbler-central-perk-cafe"),
+        "image": "job_photos/demo-job-02.jpg",
     },
     {
         "company": "Pawnee Parks Department",
@@ -79,7 +47,7 @@ JOBS = [
         "compensation": "$68,000 + waffle stipend",
         "employment_type": "Full-time",
         "requirements": ["Public service", "Project planning", "Boundless optimism"],
-        "image": picsum("jobbler-pawnee-parks"),
+        "image": "job_photos/demo-job-03.jpg",
     },
     {
         "company": "NYPD 99th Precinct",
@@ -89,7 +57,7 @@ JOBS = [
         "compensation": "$76,000 + tactical snacks",
         "employment_type": "Full-time",
         "requirements": ["Investigation", "Teamwork", "Excellent catchphrases"],
-        "image": picsum("jobbler-nine-nine-precinct"),
+        "image": "job_photos/demo-job-04.jpg",
     },
     {
         "company": "Bluth Company",
@@ -99,7 +67,7 @@ JOBS = [
         "compensation": "$71,000 (subject to family approval)",
         "employment_type": "Full-time",
         "requirements": ["Operations", "Budgeting", "Family diplomacy"],
-        "image": picsum("jobbler-bluth-model-home"),
+        "image": "job_photos/demo-job-05.jpg",
     },
     {
         "company": "Paddy's Pub",
@@ -109,7 +77,7 @@ JOBS = [
         "compensation": "$22/hour + one staff beverage",
         "employment_type": "Part-time",
         "requirements": ["Social media", "Event planning", "Crisis management"],
-        "image": picsum("jobbler-paddys-pub"),
+        "image": "job_photos/demo-job-06.jpg",
     },
     {
         "company": "Krusty Burger",
@@ -119,7 +87,7 @@ JOBS = [
         "compensation": "$27/hour + staff meal",
         "employment_type": "Full-time",
         "requirements": ["Quality assurance", "Food safety", "Elastic waistband"],
-        "image": picsum("jobbler-krusty-burger"),
+        "image": "job_photos/demo-job-07.jpg",
     },
     {
         "company": "Springfield Nuclear Power Plant",
@@ -129,7 +97,7 @@ JOBS = [
         "compensation": "$82,000 + dental plan",
         "employment_type": "Full-time",
         "requirements": ["Safety procedures", "Control panels", "Donut awareness"],
-        "image": picsum("jobbler-springfield-power-plant"),
+        "image": "job_photos/demo-job-08.jpg",
     },
     {
         "company": "Planet Express",
@@ -139,7 +107,7 @@ JOBS = [
         "compensation": "45,000 Nixonbucks + hazard pay",
         "employment_type": "Contract",
         "requirements": ["Navigation", "Customer service", "Basic spaceship repair"],
-        "image": picsum("jobbler-planet-express-delivery"),
+        "image": "job_photos/demo-job-09.jpg",
     },
     {
         "company": "Bob's Burgers",
@@ -149,7 +117,7 @@ JOBS = [
         "compensation": "$25/hour + burger of the day",
         "employment_type": "Part-time",
         "requirements": ["Copywriting", "Food service", "Advanced puns"],
-        "image": picsum("jobbler-bobs-burgers-kitchen"),
+        "image": "job_photos/demo-job-10.jpg",
     },
 ]
 
@@ -164,7 +132,7 @@ CANDIDATES = [
         "education": ("Scranton Business Park School of Hard Knocks", "Management Studies"),
         "project": ("The Michael Scott Paper Company", "Entrepreneurship, Negotiation"),
         "job": "Assistant to the Regional Manager",
-        "image": commons("Steve Carell 2010.jpg"),
+        "image": "profile_photos/demo-candidate-01.jpg",
     },
     {
         "name": "Dwight Schrute", "show": "The Office", "actor": "Rainn Wilson",
@@ -175,7 +143,7 @@ CANDIDATES = [
         "education": ("Schrute Family Training Academy", "Sales and Survival"),
         "project": ("Schrute Farms Expansion", "Operations, Hospitality"),
         "job": "Sector 7G Safety Monitor",
-        "image": commons("Rainn Wilson 2009 cropped.jpg"),
+        "image": "profile_photos/demo-candidate-02.jpg",
     },
     {
         "name": "Rachel Green", "show": "Friends", "actor": "Jennifer Aniston",
@@ -186,7 +154,7 @@ CANDIDATES = [
         "education": ("Lincoln High School", "Fashion and Retail"),
         "project": ("Central Perk Customer Refresh", "Merchandising, Service"),
         "job": "Coffeehouse Barista & Couch Guardian",
-        "image": commons("Jennifer Aniston 2011 (cropped).jpg"),
+        "image": "profile_photos/demo-candidate-03.jpg",
     },
     {
         "name": "Joey Tribbiani", "show": "Friends", "actor": "Matt LeBlanc",
@@ -197,7 +165,7 @@ CANDIDATES = [
         "education": ("Estelle Leonard Acting Studio", "Screen Performance"),
         "project": ("Ichiban Lipstick Campaign", "Commercial Acting"),
         "job": "Senior Burger Quality Tester",
-        "image": commons("Matt LeBlanc 2010.jpg"),
+        "image": "profile_photos/demo-candidate-04.jpg",
     },
     {
         "name": "Phoebe Buffay", "show": "Friends", "actor": "Lisa Kudrow",
@@ -208,7 +176,7 @@ CANDIDATES = [
         "education": ("New York School of Lived Experience", "Creative Arts"),
         "project": ("Smelly Cat", "Songwriting, Guitar"),
         "job": "Burger of the Day Copywriter",
-        "image": commons("Lisa Kudrow crop.jpg"),
+        "image": "profile_photos/demo-candidate-05.jpg",
     },
     {
         "name": "Jake Peralta", "show": "Brooklyn Nine-Nine", "actor": "Andy Samberg",
@@ -219,7 +187,7 @@ CANDIDATES = [
         "education": ("Police Academy", "Criminal Investigation"),
         "project": ("Halloween Heist", "Planning, Deception, Teamwork"),
         "job": "Detective, Cool Motive Division",
-        "image": commons("Andy Samberg by David Shankbone.jpg"),
+        "image": "profile_photos/demo-candidate-06.jpg",
     },
     {
         "name": "Rosa Diaz", "show": "Brooklyn Nine-Nine", "actor": "Stephanie Beatriz",
@@ -230,7 +198,7 @@ CANDIDATES = [
         "education": ("Police Academy", "Criminal Justice"),
         "project": ("Safe House Operations", "Security, Logistics"),
         "job": "Marketing Coordinator / Wildcard",
-        "image": commons("Actor Stephanie Beatriz (cropped).jpg"),
+        "image": "profile_photos/demo-candidate-07.jpg",
     },
     {
         "name": "Leslie Knope", "show": "Parks and Recreation", "actor": "Amy Poehler",
@@ -241,7 +209,7 @@ CANDIDATES = [
         "education": ("Indiana University", "Public Administration"),
         "project": ("Pawnee Commons", "Planning, Community Engagement"),
         "job": "Deputy Director of Tiny Parks",
-        "image": commons("Amy Poehler 2012.jpg"),
+        "image": "profile_photos/demo-candidate-08.jpg",
     },
     {
         "name": "Ron Swanson", "show": "Parks and Recreation", "actor": "Nick Offerman",
@@ -252,7 +220,7 @@ CANDIDATES = [
         "education": ("Practical School of Self-Reliance", "Woodworking"),
         "project": ("Swanson Chair", "Woodworking, Quality Control"),
         "job": "Model Home Operations Coordinator",
-        "image": commons("Nick Offerman 2012 (cropped).jpg"),
+        "image": "profile_photos/demo-candidate-09.jpg",
     },
     {
         "name": "Peter Griffin", "show": "Family Guy", "actor": "Seth MacFarlane",
@@ -263,7 +231,7 @@ CANDIDATES = [
         "education": ("James Woods Regional High School", "General Studies"),
         "project": ("Neighborhood Variety Hour", "Comedy, Production"),
         "job": "Interplanetary Delivery Specialist",
-        "image": commons("Seth MacFarlane by Gage Skidmore.jpg"),
+        "image": "profile_photos/demo-candidate-10.jpg",
     },
 ]
 
@@ -299,55 +267,35 @@ def ensure_recruiter() -> UserProfile:
     return recruiter
 
 
-def download_image(source: ImageSource) -> tuple[bytes, str]:
-    """Download and validate a small image without adding third-party packages."""
-    for attempt, delay in enumerate((0, 2, 5, 10), start=1):
-        if delay:
-            time.sleep(delay)
-        request = Request(source.download_url, headers={"User-Agent": USER_AGENT})
-        try:
-            with urlopen(request, timeout=30) as response:
-                content_type = response.headers.get_content_type()
-                content = response.read(MAX_IMAGE_BYTES + 1)
-            break
-        except HTTPError as error:
-            if error.code not in {429, 502, 503, 504} or attempt == 4:
-                raise
-    if content_type not in {"image/jpeg", "image/png", "image/webp"}:
-        raise ValueError(f"Unsupported image type from {source.download_url}: {content_type}")
+def read_demo_image(relative_path: str) -> tuple[bytes, Path]:
+    """Read and validate a repository-owned demo image."""
+    asset_root = DEMO_ASSET_ROOT.resolve()
+    source_path = (asset_root / relative_path).resolve()
+    if not source_path.is_relative_to(asset_root):
+        raise ValueError(f"Demo image points outside {asset_root}: {relative_path}")
+    if source_path.suffix.casefold() not in {".jpg", ".jpeg", ".png", ".webp"}:
+        raise ValueError(f"Demo image must be a JPG, PNG, or WebP file: {source_path}")
+    try:
+        content = source_path.read_bytes()
+    except FileNotFoundError as error:
+        raise ValueError(f"Demo image is missing: {source_path}") from error
+    if not content:
+        raise ValueError(f"Demo image is empty: {source_path}")
     if len(content) > MAX_IMAGE_BYTES:
-        raise ValueError(f"Image exceeds 5 MB: {source.download_url}")
-    extension = {"image/jpeg": ".jpg", "image/png": ".png", "image/webp": ".webp"}[content_type]
-    return content, extension
+        raise ValueError(f"Demo image exceeds 5 MB: {source_path}")
+    return content, source_path
 
 
-def attach_image(instance, field_name: str, source: ImageSource, stem: str, *, refresh: bool) -> bool:
-    """Attach a downloaded image unless an existing one should be retained."""
+def attach_image(instance, field_name: str, relative_path: str, *, refresh: bool) -> bool:
+    """Copy a local demo asset into Django's uploaded-media storage."""
     field = getattr(instance, field_name)
     if field and not refresh:
         return False
-    content, extension = download_image(source)
+    content, source_path = read_demo_image(relative_path)
     if field:
         field.delete(save=False)
-    field.save(f"{stem}{extension}", ContentFile(content), save=True)
-    record_image_source(f"{instance._meta.label_lower}:{instance.pk}:{field_name}", source)
+    field.save(source_path.name, ContentFile(content), save=True)
     return True
-
-
-def record_image_source(key: str, source: ImageSource) -> None:
-    """Keep demo-image attribution beside uploaded media."""
-    manifest_path = Path(settings.MEDIA_ROOT) / "demo_image_sources.json"
-    manifest_path.parent.mkdir(parents=True, exist_ok=True)
-    try:
-        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-    except (FileNotFoundError, json.JSONDecodeError):
-        manifest = {}
-    manifest[key] = {
-        "source_page": source.source_page,
-        "download_url": source.download_url,
-        "credit": source.credit,
-    }
-    manifest_path.write_text(json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8")
 
 
 def seed_jobs(*, include_images: bool = True, refresh_images: bool = False, stdout=None) -> list[Job]:
@@ -364,9 +312,9 @@ def seed_jobs(*, include_images: bool = True, refresh_images: bool = False, stdo
             )} | {"is_active": True},
         )
         if include_images:
-            changed = attach_image(job, "photo", data["image"], f"demo-job-{index:02d}", refresh=refresh_images)
+            changed = attach_image(job, "photo", data["image"], refresh=refresh_images)
             if stdout and changed:
-                stdout.write(f"Downloaded job photo {index}/10")
+                stdout.write(f"Copied job photo {index}/10")
         created_jobs.append(job)
     return created_jobs
 
@@ -440,9 +388,9 @@ def seed_candidates(*, include_images: bool = True, refresh_images: bool = False
             },
         )
         if include_images:
-            changed = attach_image(profile, "photo", data["image"], f"demo-candidate-{index:02d}", refresh=refresh_images)
+            changed = attach_image(profile, "photo", data["image"], refresh=refresh_images)
             if stdout and changed:
-                stdout.write(f"Downloaded candidate photo {index}/10")
+                stdout.write(f"Copied candidate photo {index}/10")
 
         builder_data = resume_data(data)
         Resume.objects.filter(user=account, is_default=True).update(is_default=False)

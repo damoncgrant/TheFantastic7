@@ -6,11 +6,11 @@ from api.demo_data import DEMO_PASSWORD, seed_candidates
 
 
 class Command(BaseCommand):
-    help = "Create or update ten comedy TV candidates, resumes, applications, and web photos."
+    help = "Create or update ten comedy TV candidates using photos from demo_assets."
 
     def add_arguments(self, parser):
-        parser.add_argument("--no-images", action="store_true", help="Skip web image downloads.")
-        parser.add_argument("--refresh-images", action="store_true", help="Replace existing demo profile photos.")
+        parser.add_argument("--no-images", action="store_true", help="Skip copying local demo images.")
+        parser.add_argument("--refresh-images", action="store_true", help="Replace media photos from demo_assets.")
 
     def handle(self, *args, **options):
         try:
