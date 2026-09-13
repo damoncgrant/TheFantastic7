@@ -356,9 +356,14 @@ def candidate_job_deck(request):
         return error("candidate_id must belong to a candidate", 403)
     applications = {item.job_id: item for item in Application.objects.filter(candidate=candidate)}
     # Skipped (left-swiped) cards are retained but intentionally placed at the end.
+    # Use job IDs to avoid a join that repeats jobs for other applicants' records.
+    skipped_job_ids = [
+        job_id for job_id, application in applications.items()
+        if application.candidate_decision == Application.CandidateDecision.SKIPPED
+    ]
     jobs = Job.objects.filter(is_active=True).select_related("company").annotate(
         deck_order=Case(
-            When(applications__candidate=candidate, applications__candidate_decision="skipped", then=Value(1)),
+            When(pk__in=skipped_job_ids, then=Value(1)),
             default=Value(0), output_field=IntegerField(),
         )
     ).order_by("deck_order", "-created_at")
