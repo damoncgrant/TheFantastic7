@@ -11,6 +11,9 @@ export default function JobDetail({ job: application, onBack }) {
   const companyName = job.company?.name || application.company;
   const avatarSrc = application.profile || job.photo_url || job.company?.logo_url;
   const statusClass = (application.status || '').toLowerCase();
+  const appliedDate = application.date instanceof Date
+    ? application.date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
+    : application.date;
 
   return (
     <div className="dashboard job-detail-page">
@@ -37,12 +40,7 @@ export default function JobDetail({ job: application, onBack }) {
 
       <section className="content-panel page-panel job-detail-panel">
         <div className="job-meta">
-          {application.date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
-            && 
-            <span>
-              Applied {application.date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
-            </span>
-          }
+          {appliedDate && <span>Applied {appliedDate}</span>}
           {job.compensation && <span>{job.compensation}</span>}
           {job.employment_type && <span>{job.employment_type}</span>}
         </div>
