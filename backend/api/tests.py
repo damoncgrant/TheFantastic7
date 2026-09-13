@@ -6,7 +6,7 @@ from django.contrib.auth import get_user_model
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase
 
-from .models import Application, Company, Job, Resume, UserProfile
+from .models import Application, Company, Job, Notification, Resume, UserProfile
 
 
 class MatchingFlowTests(TestCase):
@@ -94,6 +94,28 @@ class MatchingFlowTests(TestCase):
         self.assertEqual(application.stage, Application.Stage.REJECTED)
         self.assertEqual(application.recruiter_decision, Application.RecruiterDecision.REJECTED)
         self.assertIn("distributed systems", application.rejection_reason)
+
+    def test_candidate_can_unmatch_an_active_conversation(self):
+        self.post(f"/api/jobs/{self.job.id}/swipe/", {"candidate_id": self.candidate.id, "decision": "right"})
+        application = Application.objects.get(job=self.job, candidate=self.candidate)
+        self.client.force_login(self.recruiter_account)
+        self.post(f"/api/applications/{application.id}/swipe/", {"decision": "right"})
+
+        self.client.force_login(self.candidate_account)
+        response = self.post(f"/api/applications/{application.id}/action/", {"action": "unmatch"})
+
+        self.assertEqual(response.status_code, 200)
+        application.refresh_from_db()
+        self.assertEqual(application.candidate_decision, Application.CandidateDecision.SKIPPED)
+        self.assertEqual(application.stage, Application.Stage.INTERVIEW)
+        self.assertEqual(self.client.get("/api/conversations/").json()["conversations"], [])
+        self.assertTrue(
+            Notification.objects.filter(
+                recipient=self.recruiter,
+                application=application,
+                body__contains="unmatched",
+            ).exists(),
+        )
 
     def test_left_swipe_is_retained_at_end(self):
         self.post(f"/api/jobs/{self.job.id}/swipe/", {"candidate_id": self.candidate.id, "decision": "left"})

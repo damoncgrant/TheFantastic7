@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { flushSync } from 'react-dom';
 import {
-  actionRecruiterApplication,
+  actionApplication,
   createRecruiterJob,
   fetchRecruiterDashboard,
   removeRecruiterJobPhoto,
@@ -387,7 +387,7 @@ function InterviewCandidateCard({ candidate, onUpdated }) {
     setSaving(true);
     setError('');
     try {
-      await actionRecruiterApplication(candidate.application_id, action, reason);
+      await actionApplication(candidate.application_id, action, reason);
       await onUpdated();
     } catch (actionError) {
       setError(actionError.message || 'Could not update this application.');

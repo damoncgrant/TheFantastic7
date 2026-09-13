@@ -726,23 +726,52 @@ def recruiter_swipe(request, application_id):
 
 @require_POST
 def recruiter_application_action(request, application_id):
-    """Send an offer from an interview, or reject/unmatch an application."""
+    """Let recruiters decide applications and candidates close their own matches."""
     data = request_json(request)
     if data is None:
         return error("Body must be valid JSON")
-    recruiter, response = authenticated_profile(request, UserProfile.Role.RECRUITER)
-    if response:
-        return response
-
     action = data.get("action")
-    if action not in {"offer", "reject"}:
-        return error("action must be 'offer' or 'reject'")
+    if action not in {"offer", "reject", "unmatch"}:
+        return error("action must be 'offer', 'reject', or 'unmatch'")
+    account = authenticated_user(request)
+    if account is None:
+        return error("Sign in to update an application.", 401)
+    actor = ensure_user_profile(account)
     app = get_object_or_404(
-        Application.objects.select_related("job__company"),
+        Application.objects.select_related("candidate", "job__company", "job__recruiter"),
         pk=application_id,
-        job__recruiter=recruiter,
-        candidate_decision=Application.CandidateDecision.APPLIED,
     )
+
+    if action == "unmatch":
+        if actor.id != app.candidate_id:
+            return error("Only the candidate can unmatch this application.", 403)
+        if not app.is_match:
+            return error("This application is not an active match.", 409)
+        # Preserve the hiring stage: an unmatch is the candidate leaving the
+        # conversation, not a recruiter rejection. Skipping removes it from
+        # both active application and conversation queries.
+        app.candidate_decision = Application.CandidateDecision.SKIPPED
+        app.save(update_fields=["candidate_decision", "updated_at"])
+        Notification.objects.create(
+            recipient=app.job.recruiter,
+            application=app,
+            kind=Notification.Kind.STATUS,
+            body=(
+                f"{app.candidate.name} unmatched from the {app.job.title} "
+                f"application at {app.job.company.name}."
+            ),
+        )
+        return JsonResponse({
+            "application_id": app.id,
+            "status": app.candidate_decision,
+            "stage": app.stage,
+            "stage_label": app.get_stage_display(),
+        })
+
+    if actor.role != UserProfile.Role.RECRUITER or app.job.recruiter_id != actor.id:
+        return error("Only the recruiter who owns this job can update the application.", 403)
+    if app.candidate_decision != Application.CandidateDecision.APPLIED:
+        return error("This application is not active.", 409)
 
     if action == "offer":
         if (
@@ -755,7 +784,7 @@ def recruiter_application_action(request, application_id):
         app.save(update_fields=["stage", "rejection_reason", "updated_at"])
         create_message(
             application=app,
-            sender=recruiter,
+            sender=actor,
             body=(
                 f"Congratulations! {app.job.company.name} would like to extend you an "
                 f"offer for the {app.job.title} role."
