@@ -33,7 +33,7 @@ export function useNotifications(enabled, accountEmail) {
     let timer;
     async function poll() {
       await refresh(controller.signal);
-      if (!controller.signal.aborted) timer = window.setTimeout(poll, 15000);
+      if (!controller.signal.aborted) timer = window.setTimeout(poll, 3000);
     }
     poll();
     return () => {
