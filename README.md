@@ -105,6 +105,37 @@ pulling schema changes, run `python manage.py migrate` from `backend/` with the
 virtual environment active. `makemigrations` is only needed when intentionally
 changing a Django model, and the resulting migration should be committed.
 
+## Demo data scripts
+
+Run these from `backend/` with the virtual environment active:
+
+```sh
+# Prepare all 10 jobs, 10 candidates, resumes, applications, and web photos.
+python manage.py seed_demo
+
+# Or seed each half separately (jobs must come first).
+python manage.py seed_demo_jobs
+python manage.py seed_demo_candidates
+
+# Check that everything needed for the demo exists.
+python manage.py demo_summary
+
+# Clear every database row. This asks you to type "clear" before continuing.
+python manage.py clear_local_data
+```
+
+The seed commands are repeatable: they update their own `@jobbler.demo` records
+instead of duplicating them. Add `--refresh-images` to replace downloaded photos,
+or `--no-images` for an offline seed. Downloaded image sources and credits are
+recorded in `backend/media/demo_image_sources.json`.
+
+The demo recruiter login is `recruiter@jobbler.demo` / `demo1234`. Every seeded
+candidate uses the same password and an email ending in `@jobbler.demo`.
+
+`clear_local_data` only targets the project's expected local SQLite database and
+does not remove uploaded files by default. Pass `--media` to remove those files
+too, and `--yes` only when you intentionally want to skip the confirmation.
+
 ## Checks
 
 ```sh
