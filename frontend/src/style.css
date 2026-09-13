@@ -117,6 +117,41 @@ a {
   outline: none;
 }
 
+.sidebar-cta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 20px;
+  padding: 10px 10px 10px 16px;
+  border-radius: 999px;
+  color: var(--white);
+  font-size: 0.82rem;
+  font-weight: 700;
+  white-space: nowrap;
+  background: linear-gradient(100deg, var(--clay), var(--cream));
+  box-shadow: 0 10px 22px rgb(255 68 88 / 24%);
+  transition: box-shadow 160ms ease, transform 160ms ease;
+}
+
+.sidebar-cta:hover,
+.sidebar-cta:focus-visible {
+  background: linear-gradient(100deg, #ff8b58, #f82f62);
+  box-shadow: 0 12px 26px rgb(255 68 88 / 32%);
+  transform: translateY(-1px);
+  outline: none;
+}
+
+.sidebar-cta-icon {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: rgb(255 255 255 / 25%);
+  font-size: 0.9rem;
+}
+
 .profile {
   display: flex;
   align-items: center;
@@ -2178,6 +2213,12 @@ h2 {
   }
 
   .recruiter-shell .nav-links {
+    margin-top: 14px;
+  }
+
+  .sidebar-cta {
+    order: 1;
+    flex: 0 0 auto;
     margin-top: 14px;
   }
 
