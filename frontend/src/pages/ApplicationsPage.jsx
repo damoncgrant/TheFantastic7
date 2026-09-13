@@ -42,7 +42,7 @@ export default function ApplicationsPage({ applications, applicationsLoading, on
         {applicationsLoading ? (
           <p>Loading applications…</p>
         ) : filteredApplications.length === 0 ? (
-          <EmptyApplications />
+          <EmptyApplications filter={activeFilter} />
         ) : (
           <div className="application-list">
             {filteredApplications.map((application) => (
