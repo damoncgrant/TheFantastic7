@@ -389,14 +389,13 @@ const pages = {
   applications: ApplicationsPage,
   messages: DMPage,
   resume: ResumeBuilderPage,
-  saved: SavedJobsPage,
   swipe: JobSwiper,
   profile: ProfilePage,
   notifications: NotificationsPage,
 };
 
 function getPageFromHash() {
-  const page = window.location.hash.slice(1);
+  const page = window.location.hash.slice(1).split('?')[0];
   return Object.hasOwn(pages, page) ? page : 'overview';
 }
 
@@ -408,7 +407,7 @@ export default function App({ user, onLogout }) {
   const [applications, setApplications] = useState([]);
   const [applicationsLoading, setApplicationsLoading] = useState(true);
   const legacyPhotoSync = useRef({ source: '', promise: null });
-  const notifications = useNotifications(user.role === 'applicant', user.email);
+  const notifications = useNotifications(Boolean(user), user.email);
   const ActivePage = activePage === 'notifications' && user.role !== 'applicant' ? OverviewPage : pages[activePage];
 
   async function saveProfile(nextProfile, pictureChange = {}) {
@@ -510,6 +509,13 @@ export default function App({ user, onLogout }) {
           <span>jobbler</span>
         </a>
 
+        {user.role === 'applicant' && (
+          <a className="sidebar-cta" href="#swipe" aria-label="Find jobs to apply to">
+            <span className="sidebar-cta-copy">Find jobs</span>
+            <span className="sidebar-cta-icon" aria-hidden="true">→</span>
+          </a>
+        )}
+
         <nav className="nav-links">
           {navigation.filter((item) => !item.applicantOnly || user.role === 'applicant').map((item) => (
             <a
@@ -518,6 +524,7 @@ export default function App({ user, onLogout }) {
               key={item.id}
             >
               {item.label}
+              {item.id === 'messages' && notifications.unreadMessageCount > 0 && <span className="notification-count" aria-label={`${notifications.unreadMessageCount} unread messages`}>{notifications.unreadMessageCount}</span>}
               {item.id === 'notifications' && notifications.unreadCount > 0 && <span className="notification-count" aria-label={`${notifications.unreadCount} unread notifications`}>{notifications.unreadCount}</span>}
             </a>
           ))}
@@ -541,6 +548,8 @@ export default function App({ user, onLogout }) {
 
       <main className={`dashboard${activePage === 'resume' ? ' resume-dashboard' : ''}`} key={activePage}>
         <ActivePage
+          user={user}
+          messagesRoute="messages"
           profile={profile}
           onSave={saveProfile}
           candidateId={candidateId}

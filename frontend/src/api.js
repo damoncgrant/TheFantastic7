@@ -113,6 +113,29 @@ export function reviewCandidateApplication(applicationId, decision) {
   });
 }
 
+export function fetchConversations(options) {
+  return apiRequest('/api/conversations/', { cache: 'no-store', ...options });
+}
+
+export function fetchMessages(applicationId, options) {
+  return apiRequest(`/api/applications/${applicationId}/messages/`, { cache: 'no-store', ...options });
+}
+
+export function fetchUnreadMessageCount(options) {
+  return apiRequest('/api/messages/unread/', { cache: 'no-store', ...options });
+}
+
+export function sendMessage(applicationId, body) {
+  return apiRequest(`/api/applications/${applicationId}/messages/send/`, {
+    method: 'POST',
+    body: JSON.stringify({ body }),
+  });
+}
+
+export function markMessagesRead(applicationId) {
+  return apiRequest(`/api/applications/${applicationId}/messages/read/`, { method: 'POST' });
+}
+
 export async function createResume(payload) {
   await fetchCsrf();
   return apiRequest('/api/resumes/', { method: 'POST', body: JSON.stringify(payload) });

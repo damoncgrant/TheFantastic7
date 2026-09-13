@@ -68,18 +68,16 @@ class NotificationTests(TestCase):
         self.application.refresh_from_db()
         self.assertEqual(self.application.stage, "offer")
 
-    def test_only_new_recruiter_messages_notify(self):
-        Message.objects.create(application=self.application, sender=self.candidate, body="Hello")
-        self.assertFalse(Notification.objects.exists())
-        message = Message.objects.create(application=self.application, sender=self.recruiter, body="Interview tomorrow?")
-        notification = Notification.objects.get()
-        self.assertEqual(notification.message, message)
-        self.assertEqual(notification.recipient, self.candidate)
-        self.assertEqual(notification.body, "Interview tomorrow?")
-        self.assertEqual(notification.kind, "message")
-        message.body = "Edited message"
-        message.save()
-        self.assertEqual(Notification.objects.count(), 1)
+    def test_new_and_edited_messages_do_not_notify_either_participant(self):
+        for sender in [self.candidate, self.recruiter]:
+            with self.subTest(sender=sender.role):
+                message = Message.objects.create(application=self.application, sender=sender, body="Hello")
+                self.assertFalse(Notification.objects.exists())
+                message.body = "Edited message"
+                message.save()
+                message.refresh_from_db()
+                self.assertEqual(message.body, "Edited message")
+                self.assertFalse(Notification.objects.exists())
 
     def test_rolled_back_events_do_not_leave_notifications(self):
         with self.assertRaises(RuntimeError):
@@ -92,7 +90,7 @@ class NotificationTests(TestCase):
         self.application.refresh_from_db()
         self.assertEqual(self.application.stage, "applied")
 
-    def test_recruiter_endpoints_create_status_and_message_notifications(self):
+    def test_matching_notifies_but_messages_do_not_notify_either_participant(self):
         self.client.force_login(self.recruiter_user)
         response = self.client.post(f"/api/applications/{self.application.id}/swipe/",
                                     json.dumps({"decision": "right"}), content_type="application/json")
@@ -100,15 +98,55 @@ class NotificationTests(TestCase):
         response = self.client.post(f"/api/applications/{self.application.id}/messages/send/",
                                     json.dumps({"user_id": self.recruiter.id, "body": "Welcome!"}), content_type="application/json")
         self.assertEqual(response.status_code, 201)
-        self.assertEqual(list(Notification.objects.values_list("kind", flat=True)), ["message", "message", "status"])
+        self.assertEqual(list(Notification.objects.values_list("kind", flat=True)), ["status"])
         self.client.force_login(self.user)
         response = self.client.get("/api/notifications/")
-        self.assertEqual(response.json()["unreadCount"], 3)
-        self.assertEqual(response.json()["notifications"][0]["sender"], "Riley")
+        self.assertEqual(response.json()["unreadCount"], 1)
+        self.assertEqual(response.json()["notifications"][0]["kind"], "status")
+        response = self.client.post(f"/api/applications/{self.application.id}/messages/send/",
+                                    json.dumps({"body": "Thank you!"}), content_type="application/json")
+        self.assertEqual(response.status_code, 201)
+        self.client.force_login(self.recruiter_user)
+        self.assertEqual(self.client.get("/api/notifications/").json(), {"notifications": [], "unreadCount": 0})
+        response = self.client.get(f"/api/applications/{self.application.id}/messages/")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual([item["body"] for item in response.json()["messages"]][-2:], ["Welcome!", "Thank you!"])
+        self.assertEqual(list(Notification.objects.values_list("kind", flat=True)), ["status"])
+
+    def test_existing_message_notifications_are_hidden_for_both_participants(self):
+        for user, recipient, sender in [
+            (self.user, self.candidate, self.recruiter),
+            (self.recruiter_user, self.recruiter, self.candidate),
+        ]:
+            with self.subTest(role=recipient.role):
+                message = Message.objects.create(application=self.application, sender=sender, body="Old message")
+                legacy = Notification.objects.create(
+                    recipient=recipient, application=self.application, message=message,
+                    kind=Notification.Kind.MESSAGE, body=message.body,
+                )
+                status = Notification.objects.create(
+                    recipient=recipient, application=self.application,
+                    kind=Notification.Kind.STATUS, body="Application updated",
+                )
+                self.client.force_login(user)
+                response = self.client.get("/api/notifications/")
+                self.assertEqual(response.json()["unreadCount"], 1)
+                self.assertEqual([item["id"] for item in response.json()["notifications"]], [status.id])
+                self.assertEqual(self.client.post(f"/api/notifications/{legacy.id}/read/").status_code, 404)
+                response = self.client.post(f"/api/notifications/{status.id}/read/")
+                self.assertEqual(response.json()["unreadCount"], 0)
+                response = self.client.post("/api/notifications/read-all/")
+                self.assertEqual(response.json()["unreadCount"], 0)
+                legacy.refresh_from_db()
+                self.assertIsNone(legacy.read_at)
 
     def test_read_states_persist_and_are_scoped_to_logged_in_applicant(self):
-        first = Message.objects.create(application=self.application, sender=self.recruiter, body="First").notification
-        second = Message.objects.create(application=self.application, sender=self.recruiter, body="Second").notification
+        self.application.stage = "interview"
+        self.application.save(update_fields=["stage"])
+        first = Notification.objects.get()
+        self.application.stage = "offer"
+        self.application.save(update_fields=["stage"])
+        second = Notification.objects.first()
         response = self.client.get("/api/notifications/")
         self.assertEqual([item["id"] for item in response.json()["notifications"]], [second.id, first.id])
         self.assertEqual(self.client.post(f"/api/notifications/{first.id}/read/").status_code, 200)
@@ -134,7 +172,7 @@ class NotificationTests(TestCase):
         self.client.logout()
         self.assertEqual(self.client.get("/api/notifications/").status_code, 401)
         self.client.force_login(self.recruiter_user)
-        self.assertEqual(self.client.get("/api/notifications/").status_code, 403)
+        self.assertEqual(self.client.get("/api/notifications/").status_code, 200)
         self.client.force_login(self.user)
         self.assertEqual(self.client.get("/api/notifications/read-all/").status_code, 405)
         client = Client(enforce_csrf_checks=True)
