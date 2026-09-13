@@ -6,7 +6,7 @@ from django.contrib.auth import get_user_model
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase
 
-from .models import Application, Company, Job, Resume, UserProfile
+from .models import Application, Company, Job, Notification, Resume, UserProfile
 
 
 class MatchingFlowTests(TestCase):
@@ -45,18 +45,77 @@ class MatchingFlowTests(TestCase):
         self.assertTrue(selected.json()["messaging_unlocked"])
         self.client.force_login(self.candidate_account)
         applications = self.client.get(f"/api/applications/?candidate_id={self.candidate.id}")
-        self.assertEqual(applications.json()["applications"][0]["stage"], "offer")
+        self.assertEqual(applications.json()["applications"][0]["stage"], "interview")
         self.assertTrue(applications.json()["applications"][0]["is_match"])
         candidate_conversations = self.client.get("/api/conversations/")
         self.assertEqual(candidate_conversations.json()["conversations"][0]["participant"]["name"], self.recruiter.name)
         message = self.post(f"/api/applications/{application_id}/messages/send/", {"body": "Thanks!"})
         self.assertEqual(message.status_code, 201)
+        too_long = self.post(
+            f"/api/applications/{application_id}/messages/send/",
+            {"body": "x" * 4001},
+        )
+        self.assertEqual(too_long.status_code, 400)
 
         self.client.force_login(self.recruiter_account)
         recruiter_conversations = self.client.get("/api/conversations/")
         self.assertEqual(recruiter_conversations.json()["conversations"][0]["participant"]["name"], self.candidate.name)
         thread = self.client.get(f"/api/applications/{application_id}/messages/")
         self.assertEqual([item["body"] for item in thread.json()["messages"]][-1], "Thanks!")
+
+    def test_recruiter_can_send_offer_only_from_interview(self):
+        self.post(f"/api/jobs/{self.job.id}/swipe/", {"candidate_id": self.candidate.id, "decision": "right"})
+        application = Application.objects.get(job=self.job, candidate=self.candidate)
+        self.client.force_login(self.recruiter_account)
+
+        blocked = self.post(f"/api/applications/{application.id}/action/", {"action": "offer"})
+        self.assertEqual(blocked.status_code, 409)
+
+        self.post(f"/api/applications/{application.id}/swipe/", {"decision": "right"})
+        offered = self.post(f"/api/applications/{application.id}/action/", {"action": "offer"})
+        self.assertEqual(offered.status_code, 200)
+        self.assertEqual(offered.json()["stage"], Application.Stage.OFFER)
+
+        self.client.force_login(self.candidate_account)
+        messages = self.client.get(f"/api/applications/{application.id}/messages/").json()["messages"]
+        self.assertIn("extend you an offer", messages[-1]["body"])
+
+    def test_recruiter_can_reject_with_reason(self):
+        self.post(f"/api/jobs/{self.job.id}/swipe/", {"candidate_id": self.candidate.id, "decision": "right"})
+        application = Application.objects.get(job=self.job, candidate=self.candidate)
+        self.client.force_login(self.recruiter_account)
+
+        response = self.post(
+            f"/api/applications/{application.id}/action/",
+            {"action": "reject", "rejection_reason": "We need more experience with distributed systems."},
+        )
+        self.assertEqual(response.status_code, 200)
+        application.refresh_from_db()
+        self.assertEqual(application.stage, Application.Stage.REJECTED)
+        self.assertEqual(application.recruiter_decision, Application.RecruiterDecision.REJECTED)
+        self.assertIn("distributed systems", application.rejection_reason)
+
+    def test_candidate_can_unmatch_an_active_conversation(self):
+        self.post(f"/api/jobs/{self.job.id}/swipe/", {"candidate_id": self.candidate.id, "decision": "right"})
+        application = Application.objects.get(job=self.job, candidate=self.candidate)
+        self.client.force_login(self.recruiter_account)
+        self.post(f"/api/applications/{application.id}/swipe/", {"decision": "right"})
+
+        self.client.force_login(self.candidate_account)
+        response = self.post(f"/api/applications/{application.id}/action/", {"action": "unmatch"})
+
+        self.assertEqual(response.status_code, 200)
+        application.refresh_from_db()
+        self.assertEqual(application.candidate_decision, Application.CandidateDecision.SKIPPED)
+        self.assertEqual(application.stage, Application.Stage.INTERVIEW)
+        self.assertEqual(self.client.get("/api/conversations/").json()["conversations"], [])
+        self.assertTrue(
+            Notification.objects.filter(
+                recipient=self.recruiter,
+                application=application,
+                body__contains="unmatched",
+            ).exists(),
+        )
 
     def test_left_swipe_is_retained_at_end(self):
         self.post(f"/api/jobs/{self.job.id}/swipe/", {"candidate_id": self.candidate.id, "decision": "left"})
@@ -316,7 +375,7 @@ class RecruiterDatabaseTests(TestCase):
 
         self.assertEqual(response.status_code, 401)
 
-    def test_right_swipe_creates_offer_visible_to_applicant(self):
+    def test_right_swipe_creates_interview_visible_to_applicant(self):
         self.client.force_login(self.recruiter_account)
 
         response = self.post_json(
@@ -325,9 +384,9 @@ class RecruiterDatabaseTests(TestCase):
         )
 
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.json()["stage"], Application.Stage.OFFER)
+        self.assertEqual(response.json()["stage"], Application.Stage.INTERVIEW)
         self.application.refresh_from_db()
-        self.assertEqual(self.application.stage, Application.Stage.OFFER)
+        self.assertEqual(self.application.stage, Application.Stage.INTERVIEW)
         self.assertEqual(
             self.application.recruiter_decision,
             Application.RecruiterDecision.SELECTED,
@@ -336,7 +395,7 @@ class RecruiterDatabaseTests(TestCase):
         self.client.force_login(self.applicant_account)
         applicant_view = self.client.get(f"/api/applications/?candidate_id={self.candidate.id}")
         self.assertEqual(applicant_view.status_code, 200)
-        self.assertEqual(applicant_view.json()["applications"][0]["stage"], "offer")
+        self.assertEqual(applicant_view.json()["applications"][0]["stage"], "interview")
 
     def test_recruiter_swipe_requires_login(self):
         response = self.post_json(

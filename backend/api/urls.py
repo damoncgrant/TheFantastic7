@@ -21,6 +21,7 @@ urlpatterns = [
     path("recruiter/jobs/<int:job_id>/photo/", views.recruiter_job_photo, name="recruiter-job-photo"),
     path("recruiter/jobs/<int:job_id>/candidates/", views.recruiter_candidate_deck, name="recruiter-candidate-deck"),
     path("applications/<int:application_id>/swipe/", views.recruiter_swipe, name="recruiter-swipe"),
+    path("applications/<int:application_id>/action/", views.recruiter_application_action, name="recruiter-application-action"),
     path("applications/<int:application_id>/resume/", views.recruiter_application_resume, name="recruiter-application-resume"),
     path("conversations/", views.conversations, name="conversations"),
     path("applications/<int:application_id>/messages/", views.messages, name="messages"),

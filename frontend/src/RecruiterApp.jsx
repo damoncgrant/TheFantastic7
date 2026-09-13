@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { flushSync } from 'react-dom';
 import {
+  actionApplication,
   createRecruiterJob,
   fetchRecruiterDashboard,
   removeRecruiterJobPhoto,
@@ -120,7 +121,12 @@ function ManagedApplicantRow({ candidate }) {
         {candidate.stage === 'offer' ? 'Offer sent' : candidate.stage_label}
       </span>
       {candidate.recruiter_decision === 'pending' && (
-        <a className="secondary-button compact-button button-link" href="#recruiter-candidates">Review</a>
+        <a
+          className="secondary-button compact-button button-link"
+          href={`#recruiter-candidates?application=${candidate.application_id}`}
+        >
+          Review
+        </a>
       )}
     </article>
   );
@@ -171,6 +177,7 @@ function RecruiterCandidateSwiper({ candidates, onCandidateReviewed, onMatch }) 
   const [error, setError] = useState('');
   const [resumeImageError, setResumeImageError] = useState(false);
   const [pendingSwipe, setPendingSwipe] = useState(null);
+  const [rejectionReason, setRejectionReason] = useState('');
   const dragging = useRef(false);
   const startX = useRef(0);
   const current = queue[0];
@@ -188,12 +195,12 @@ function RecruiterCandidateSwiper({ candidates, onCandidateReviewed, onMatch }) 
     return () => window.removeEventListener('keydown', closeOnEscape);
   }, [pendingSwipe]);
 
-  const commitSwipe = useCallback(async (direction) => {
+  const commitSwipe = useCallback(async (direction, reason = '') => {
     if (!current || exiting) return;
     setError('');
     setExiting(direction);
     try {
-      const result = await reviewCandidateApplication(current.application_id, direction);
+      const result = await reviewCandidateApplication(current.application_id, direction, reason);
       if (direction === 'right' && result.messaging_unlocked) onMatch(current);
       await new Promise((resolve) => window.setTimeout(resolve, 220));
       setQueue((items) => items.slice(1));
@@ -245,7 +252,9 @@ function RecruiterCandidateSwiper({ candidates, onCandidateReviewed, onMatch }) 
   function confirmPendingSwipe() {
     const direction = pendingSwipe;
     setPendingSwipe(null);
-    if (direction) commitSwipe(direction);
+    const reason = rejectionReason;
+    setRejectionReason('');
+    if (direction) commitSwipe(direction, reason);
   }
 
   function endDrag() {
@@ -281,7 +290,7 @@ function RecruiterCandidateSwiper({ candidates, onCandidateReviewed, onMatch }) 
             )}
             {Math.abs(dragX) > 55 && (
               <span className={`recruiter-swipe-stamp ${dragX > 0 ? 'offer' : 'reject'}`}>
-                {dragX > 0 ? 'Offer' : 'Reject'}
+                {dragX > 0 ? 'Interview' : 'Reject'}
               </span>
             )}
           </div>
@@ -306,11 +315,11 @@ function RecruiterCandidateSwiper({ candidates, onCandidateReviewed, onMatch }) 
       </div>
 
       <div className="recruiter-swipe-actions">
-        <button className="recruiter-reject-button" type="button" onClick={() => commitSwipe('left')} disabled={Boolean(exiting)}>
+        <button className="recruiter-reject-button" type="button" onClick={() => setPendingSwipe('left')} disabled={Boolean(exiting)}>
           <span aria-hidden="true">×</span> Reject
         </button>
         <button className="recruiter-offer-button" type="button" onClick={() => commitSwipe('right')} disabled={Boolean(exiting)}>
-          Make offer <span aria-hidden="true">✓</span>
+          Invite to interview <span aria-hidden="true">✓</span>
         </button>
       </div>
       {error && <p className="recruiter-form-error recruiter-swipe-error" role="alert">{error}</p>}
@@ -319,7 +328,10 @@ function RecruiterCandidateSwiper({ candidates, onCandidateReviewed, onMatch }) 
         <div
           className="recruiter-confirm-backdrop"
           onPointerDown={(event) => {
-            if (event.target === event.currentTarget) setPendingSwipe(null);
+            if (event.target === event.currentTarget) {
+              setPendingSwipe(null);
+              setRejectionReason('');
+            }
           }}
         >
           <div
@@ -336,21 +348,82 @@ function RecruiterCandidateSwiper({ candidates, onCandidateReviewed, onMatch }) 
             <h2 id="recruiter-confirm-title">Are you sure?</h2>
             <p id="recruiter-confirm-description">
               {pendingSwipe === 'right'
-                ? <>You’re about to send an offer to <strong>{current.name}</strong>.</>
+                ? <>You’re about to invite <strong>{current.name}</strong> to interview.</>
                 : <>You’re about to reject <strong>{current.name}’s</strong> application.</>}
             </p>
+            {pendingSwipe === 'left' && (
+              <label className="recruiter-rejection-reason">
+                <span>Reason for rejection <em>(optional)</em></span>
+                <textarea
+                  value={rejectionReason}
+                  onChange={(event) => setRejectionReason(event.target.value)}
+                  maxLength="1000"
+                  placeholder="Share concise, constructive feedback."
+                />
+              </label>
+            )}
             <div className="recruiter-confirm-actions">
-              <button type="button" className="secondary-button" onClick={() => setPendingSwipe(null)} autoFocus>
+              <button type="button" className="secondary-button" onClick={() => { setPendingSwipe(null); setRejectionReason(''); }} autoFocus>
                 Go back
               </button>
               <button type="button" className="recruiter-confirm-button" onClick={confirmPendingSwipe}>
-                {pendingSwipe === 'right' ? 'Yes, make offer' : 'Yes, reject'}
+                {pendingSwipe === 'right' ? 'Yes, invite to interview' : 'Yes, reject'}
               </button>
             </div>
           </div>
         </div>
       )}
     </section>
+  );
+}
+
+function InterviewCandidateCard({ candidate, onUpdated }) {
+  const [reason, setReason] = useState('');
+  const [showReject, setShowReject] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+
+  async function updateApplication(action) {
+    setSaving(true);
+    setError('');
+    try {
+      await actionApplication(candidate.application_id, action, reason);
+      await onUpdated();
+    } catch (actionError) {
+      setError(actionError.message || 'Could not update this application.');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <article className="interview-candidate-card">
+      <div>
+        <p className="eyebrow">Interview stage</p>
+        <h3>{candidate.name}</h3>
+        <p>{candidate.job_title} at {candidate.company_name}</p>
+      </div>
+      <div className="interview-candidate-actions">
+        <button className="recruiter-offer-button compact-button" type="button" onClick={() => updateApplication('offer')} disabled={saving}>
+          Send offer
+        </button>
+        <button className="recruiter-reject-button compact-button" type="button" onClick={() => setShowReject((open) => !open)} disabled={saving}>
+          Reject / unmatch
+        </button>
+      </div>
+      {showReject && (
+        <div className="interview-rejection-form">
+          <label>
+            Reason for rejection <span>(optional)</span>
+            <textarea value={reason} onChange={(event) => setReason(event.target.value)} maxLength="1000" placeholder="Share concise, constructive feedback." />
+          </label>
+          <button className="recruiter-confirm-button compact-button" type="button" onClick={() => updateApplication('reject')} disabled={saving}>
+            Confirm rejection
+          </button>
+        </div>
+      )}
+      {error && <p className="recruiter-form-error" role="alert">{error}</p>}
+    </article>
   );
 }
 
@@ -433,9 +506,16 @@ function RecruiterJobs({ data, loading, error }) {
   );
 }
 
-function RecruiterCandidates({ data, loading, error, onCandidateReviewed, onMatch }) {
+function RecruiterCandidates({ data, loading, error, applicationId, onCandidateReviewed, onMatch }) {
   const allCandidates = data?.candidates ?? [];
-  const candidates = allCandidates.filter((candidate) => candidate.recruiter_decision === 'pending');
+  const pendingCandidates = allCandidates.filter((candidate) => candidate.recruiter_decision === 'pending');
+  const focusedCandidate = applicationId
+    ? pendingCandidates.find((candidate) => String(candidate.application_id) === String(applicationId))
+    : null;
+  const candidates = applicationId ? (focusedCandidate ? [focusedCandidate] : []) : pendingCandidates;
+  const interviewCandidates = allCandidates.filter(
+    (candidate) => candidate.recruiter_decision === 'selected' && candidate.stage === 'interview',
+  );
 
   let content;
   if (loading) {
@@ -460,6 +540,20 @@ function RecruiterCandidates({ data, loading, error, onCandidateReviewed, onMatc
         </div>
       </section>
     );
+  } else if (applicationId && !focusedCandidate) {
+    content = (
+      <section className="recruiter-candidates-empty compact" aria-labelledby="focused-candidate-missing-heading">
+        <div className="recruiter-empty-count complete" aria-hidden="true">✓</div>
+        <div className="recruiter-empty-copy">
+          <p className="eyebrow">Application unavailable</p>
+          <h2 id="focused-candidate-missing-heading">This application is no longer awaiting review</h2>
+          <p>It may already have been offered or rejected. You can return to the queue to review other applicants.</p>
+          <div className="recruiter-empty-actions">
+            <a className="primary-button button-link" href="#recruiter-candidates">View all pending candidates</a>
+          </div>
+        </div>
+      </section>
+    );
   } else if (candidates.length === 0) {
     content = (
       <section className="recruiter-candidates-empty compact" aria-labelledby="reviewed-candidates-heading">
@@ -479,10 +573,31 @@ function RecruiterCandidates({ data, loading, error, onCandidateReviewed, onMatc
     <>
       <RecruiterHeader
         eyebrow="Discover talent"
-        title="Candidates"
-        description="Swipe right to make an offer, or left to reject an application."
+        title={focusedCandidate ? focusedCandidate.name : 'Candidates'}
+        description={focusedCandidate
+          ? `Review ${focusedCandidate.name}'s application. Swipe right to invite them to interview, or left to reject.`
+          : 'Swipe right to invite a candidate to interview, or left to reject an application.'}
+        action={focusedCandidate
+          ? <a className="secondary-button button-link" href="#recruiter-candidates">View all candidates</a>
+          : null}
       />
       {content}
+      {!applicationId && !loading && !error && interviewCandidates.length > 0 && (
+        <section className="interview-candidates-panel" aria-labelledby="interview-candidates-heading">
+          <div className="section-heading">
+            <div>
+              <p className="eyebrow">Matched candidates</p>
+              <h2 id="interview-candidates-heading">Ready for a decision</h2>
+            </div>
+            <span>{interviewCandidates.length} in interview</span>
+          </div>
+          <div className="interview-candidate-list">
+            {interviewCandidates.map((candidate) => (
+              <InterviewCandidateCard candidate={candidate} key={candidate.application_id} onUpdated={onCandidateReviewed} />
+            ))}
+          </div>
+        </section>
+      )}
     </>
   );
 }
@@ -842,6 +957,10 @@ function getManagedJobId(route) {
   return new URLSearchParams(route.split('?')[1] || '').get('job');
 }
 
+function getReviewedApplicationId(route) {
+  return new URLSearchParams(route.split('?')[1] || '').get('application');
+}
+
 export default function RecruiterApp({ user, onLogout }) {
   const [activeRoute, setActiveRoute] = useState(() => window.location.hash.slice(1) || 'recruiter-overview');
   const [data, setData] = useState(null);
@@ -937,6 +1056,7 @@ export default function RecruiterApp({ user, onLogout }) {
           loading={loading}
           error={error}
           jobId={getManagedJobId(activeRoute)}
+          applicationId={getReviewedApplicationId(activeRoute)}
           onJobCreated={loadDashboard}
           onJobUpdated={loadDashboard}
           onCandidateReviewed={loadDashboard}
