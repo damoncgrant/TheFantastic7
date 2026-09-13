@@ -70,7 +70,7 @@ function ManagedApplicantRow({ candidate }) {
   });
 
   return (
-    <article className="recruiter-applicant-row">
+    <article className={`recruiter-applicant-row applicant-${candidate.stage}`}>
       {candidate.photo_url ? (
         <img className="recruiter-applicant-avatar recruiter-applicant-photo" src={candidate.photo_url} alt={`${candidate.name}'s profile`} />
       ) : (
@@ -85,7 +85,9 @@ function ManagedApplicantRow({ candidate }) {
           {candidate.skills.slice(0, 3).map((skill) => <span key={skill}>{skill}</span>)}
         </div>
       )}
-      <span className={`candidate-stage stage-${candidate.stage}`}>{candidate.stage_label}</span>
+      <span className={`candidate-stage stage-${candidate.stage}`}>
+        {candidate.stage === 'offer' ? 'Offer sent' : candidate.stage_label}
+      </span>
       {candidate.recruiter_decision === 'pending' && (
         <a className="secondary-button compact-button button-link" href="#recruiter-candidates">Review</a>
       )}
@@ -137,12 +139,23 @@ function RecruiterCandidateSwiper({ candidates, onCandidateReviewed }) {
   const [exiting, setExiting] = useState(null);
   const [error, setError] = useState('');
   const [resumeImageError, setResumeImageError] = useState(false);
+  const [pendingSwipe, setPendingSwipe] = useState(null);
   const dragging = useRef(false);
   const startX = useRef(0);
   const current = queue[0];
 
   useEffect(() => setQueue(candidates), [candidates]);
   useEffect(() => setResumeImageError(false), [current?.application_id]);
+  useEffect(() => {
+    if (!pendingSwipe) return undefined;
+
+    function closeOnEscape(event) {
+      if (event.key === 'Escape') setPendingSwipe(null);
+    }
+
+    window.addEventListener('keydown', closeOnEscape);
+    return () => window.removeEventListener('keydown', closeOnEscape);
+  }, [pendingSwipe]);
 
   const commitSwipe = useCallback(async (direction) => {
     if (!current || exiting) return;
@@ -181,6 +194,7 @@ function RecruiterCandidateSwiper({ candidates, onCandidateReviewed }) {
     : `translateX(${dragX}px) rotate(${dragX / 28}deg)`;
 
   function beginDrag(event) {
+    if (pendingSwipe || exiting) return;
     dragging.current = true;
     startX.current = event.clientX;
     event.currentTarget.setPointerCapture?.(event.pointerId);
@@ -190,11 +204,23 @@ function RecruiterCandidateSwiper({ candidates, onCandidateReviewed }) {
     if (dragging.current && !exiting) setDragX(event.clientX - startX.current);
   }
 
+  // Drag gestures open a confirmation dialog because they are easier to trigger by accident.
+  function confirmDraggedSwipe(direction) {
+    setDragX(0);
+    setPendingSwipe(direction);
+  }
+
+  function confirmPendingSwipe() {
+    const direction = pendingSwipe;
+    setPendingSwipe(null);
+    if (direction) commitSwipe(direction);
+  }
+
   function endDrag() {
     if (!dragging.current) return;
     dragging.current = false;
-    if (dragX > 90) commitSwipe('right');
-    else if (dragX < -90) commitSwipe('left');
+    if (dragX > 90) confirmDraggedSwipe('right');
+    else if (dragX < -90) confirmDraggedSwipe('left');
     else setDragX(0);
   }
 
@@ -256,6 +282,42 @@ function RecruiterCandidateSwiper({ candidates, onCandidateReviewed }) {
         </button>
       </div>
       {error && <p className="recruiter-form-error recruiter-swipe-error" role="alert">{error}</p>}
+
+      {pendingSwipe && (
+        <div
+          className="recruiter-confirm-backdrop"
+          onPointerDown={(event) => {
+            if (event.target === event.currentTarget) setPendingSwipe(null);
+          }}
+        >
+          <div
+            className={`recruiter-confirm-dialog ${pendingSwipe === 'right' ? 'offer' : 'reject'}`}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="recruiter-confirm-title"
+            aria-describedby="recruiter-confirm-description"
+          >
+            <span className="recruiter-confirm-icon" aria-hidden="true">
+              {pendingSwipe === 'right' ? '✓' : '×'}
+            </span>
+            <p className="eyebrow">Confirm decision</p>
+            <h2 id="recruiter-confirm-title">Are you sure?</h2>
+            <p id="recruiter-confirm-description">
+              {pendingSwipe === 'right'
+                ? <>You’re about to send an offer to <strong>{current.name}</strong>.</>
+                : <>You’re about to reject <strong>{current.name}’s</strong> application.</>}
+            </p>
+            <div className="recruiter-confirm-actions">
+              <button type="button" className="secondary-button" onClick={() => setPendingSwipe(null)} autoFocus>
+                Go back
+              </button>
+              <button type="button" className="recruiter-confirm-button" onClick={confirmPendingSwipe}>
+                {pendingSwipe === 'right' ? 'Yes, make offer' : 'Yes, reject'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </section>
   );
 }
@@ -700,7 +762,10 @@ function ManageJobPage({ data, loading, error, jobId, onJobUpdated }) {
       <section className="content-panel recruiter-manage-applicants" aria-labelledby="managed-applicants-heading">
         <div className="section-heading">
           <div>
-            <p className="eyebrow">{applicants.length} total · {pendingApplicantCount} awaiting review</p>
+            <div className="recruiter-applicant-counts" aria-label={`${applicants.length} total applicants, ${pendingApplicantCount} awaiting review`}>
+              <span><strong>{applicants.length}</strong> total</span>
+              <span className="pending"><strong>{pendingApplicantCount}</strong> awaiting review</span>
+            </div>
             <h2 id="managed-applicants-heading">Applicants</h2>
           </div>
           {pendingApplicantCount > 0 && <a href="#recruiter-candidates">Review pending</a>}

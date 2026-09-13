@@ -883,6 +883,8 @@ h2 {
   --recruiter-teal: #12a999;
   --recruiter-teal-light: #dff7f3;
   --recruiter-blue: #2d6cdf;
+  /* Let swipe cards cross internal layout boundaries without scrolling the page. */
+  overflow-x: clip;
   background: #f3f7fa;
 }
 
@@ -1317,17 +1319,54 @@ h2 {
   margin-top: 24px;
 }
 
+.recruiter-applicant-counts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.recruiter-applicant-counts span {
+  padding: 6px 10px;
+  border: 1px solid #d8e3eb;
+  border-radius: 999px;
+  color: #344a61;
+  background: #f2f6f8;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.recruiter-applicant-counts .pending {
+  border-color: #bfd9f2;
+  color: #195b92;
+  background: #eaf4fd;
+}
+
 .recruiter-applicant-list {
   display: grid;
 }
 
 .recruiter-applicant-row {
+  --applicant-state-color: #9bafbf;
   display: grid;
   grid-template-columns: auto minmax(180px, 1fr) minmax(150px, auto) auto auto;
   align-items: center;
   gap: 14px;
-  padding: 16px 0;
+  margin: 4px 0;
+  padding: 14px 12px;
   border-top: 1px solid #e8eef2;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--applicant-state-color) 6%, white);
+  box-shadow: inset 4px 0 var(--applicant-state-color);
+}
+
+.recruiter-applicant-row.applicant-applied {
+  --applicant-state-color: #347fbd;
+}
+
+.recruiter-applicant-row.applicant-offer {
+  --applicant-state-color: #269264;
 }
 
 .recruiter-applicant-avatar {
@@ -1382,13 +1421,29 @@ h2 {
   align-items: center;
   justify-content: center;
   justify-self: end;
-  min-width: 84px;
+  gap: 6px;
+  min-width: 112px;
   text-align: center;
 }
 
+.recruiter-applicant-row .candidate-stage::before {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: currentColor;
+  content: '';
+}
+
+.recruiter-applicant-row .stage-applied {
+  border: 1px solid #bad9f3;
+  color: #195b92;
+  background: #e8f3fd;
+}
+
 .recruiter-applicant-row .stage-offer {
-  color: #197048;
-  background: #eaf8f1;
+  border: 1px solid #b8e0cc;
+  color: #176b46;
+  background: #e4f6ed;
 }
 
 .recruiter-applicant-row .stage-rejected {
@@ -1441,7 +1496,8 @@ h2 {
   justify-items: center;
   gap: 18px;
   margin-top: 34px;
-  overflow: hidden;
+  /* The card must remain visible while it travels left or right. */
+  overflow: visible;
 }
 
 .recruiter-swipe-progress {
@@ -1453,6 +1509,8 @@ h2 {
 }
 
 .recruiter-review-layout {
+  /* Keep the card and resume in one predictable stacking context while swiping. */
+  isolation: isolate;
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(min(100%, 400px), 1fr));
   gap: 20px;
@@ -1466,6 +1524,9 @@ h2 {
 }
 
 .recruiter-swipe-card {
+  /* A transformed card creates its own layer; keep that layer above the resume. */
+  position: relative;
+  z-index: 2;
   width: 100%;
   min-height: 570px;
   border: 1px solid #dbe5ed;
@@ -1480,6 +1541,8 @@ h2 {
 }
 
 .recruiter-resume-panel {
+  position: relative;
+  z-index: 1;
   height: 570px;
   overflow: auto;
   border: 1px solid #dbe5ed;
@@ -1795,6 +1858,116 @@ h2 {
 
 .recruiter-swipe-error {
   width: min(100%, 440px);
+}
+
+/* Branded confirmation shown only after a drag gesture. */
+.recruiter-confirm-backdrop {
+  position: fixed;
+  z-index: 1000;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgb(8 25 49 / 54%);
+  backdrop-filter: blur(7px);
+}
+
+.recruiter-confirm-dialog {
+  --confirm-accent: var(--recruiter-teal);
+  --confirm-soft: var(--recruiter-teal-light);
+  width: min(100%, 430px);
+  padding: 34px;
+  border: 1px solid rgb(255 255 255 / 65%);
+  border-radius: 28px;
+  background: #ffffff;
+  box-shadow: 0 30px 90px rgb(4 20 43 / 35%);
+  text-align: center;
+  animation: recruiter-confirm-in 180ms ease-out;
+}
+
+.recruiter-confirm-dialog.reject {
+  --confirm-accent: #d7445c;
+  --confirm-soft: #fff0f2;
+}
+
+.recruiter-confirm-icon {
+  display: grid;
+  place-items: center;
+  width: 68px;
+  height: 68px;
+  margin: 0 auto 20px;
+  border-radius: 50%;
+  color: #ffffff;
+  background: linear-gradient(135deg, var(--confirm-accent), var(--recruiter-blue));
+  box-shadow: 0 12px 26px color-mix(in srgb, var(--confirm-accent) 30%, transparent);
+  font-size: 1.8rem;
+  font-weight: 800;
+}
+
+.recruiter-confirm-dialog.reject .recruiter-confirm-icon {
+  background: linear-gradient(135deg, #ef6074, #c72f4b);
+}
+
+.recruiter-confirm-dialog .eyebrow {
+  margin-bottom: 7px;
+  color: var(--confirm-accent);
+}
+
+.recruiter-confirm-dialog h2 {
+  margin: 0;
+  color: var(--recruiter-navy);
+  font-size: clamp(1.65rem, 5vw, 2rem);
+}
+
+.recruiter-confirm-dialog > p:last-of-type {
+  margin: 12px auto 0;
+  color: #60748a;
+  line-height: 1.55;
+}
+
+.recruiter-confirm-dialog strong {
+  color: var(--recruiter-navy);
+}
+
+.recruiter-confirm-actions {
+  display: grid;
+  grid-template-columns: 1fr 1.2fr;
+  gap: 12px;
+  margin-top: 28px;
+}
+
+.recruiter-confirm-actions button {
+  min-height: 50px;
+  border-radius: 999px;
+  font: inherit;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.recruiter-confirm-button {
+  border: 0;
+  color: #ffffff;
+  background: var(--confirm-accent);
+  box-shadow: 0 10px 22px color-mix(in srgb, var(--confirm-accent) 25%, transparent);
+}
+
+.recruiter-confirm-actions button:hover,
+.recruiter-confirm-actions button:focus-visible {
+  transform: translateY(-2px);
+  outline: 3px solid color-mix(in srgb, var(--confirm-accent) 18%, transparent);
+  outline-offset: 3px;
+}
+
+@keyframes recruiter-confirm-in {
+  from {
+    transform: translateY(14px) scale(0.96);
+    opacity: 0;
+  }
+
+  to {
+    transform: translateY(0) scale(1);
+    opacity: 1;
+  }
 }
 
 .recruiter-swipe-empty {
