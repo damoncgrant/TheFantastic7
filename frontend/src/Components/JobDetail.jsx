@@ -14,6 +14,12 @@ export default function JobDetail({ job: application, onBack }) {
   const appliedDate = application.date instanceof Date
     ? application.date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
     : application.date;
+  const canMessageRecruiter = application.stage === 'interview' || application.stage === 'offer';
+
+  function goToMessages() {
+    onBack();
+    window.location.hash = `messages?conversation=${application.id}`;
+  }
 
   return (
     <div className="dashboard job-detail-page">
@@ -35,7 +41,12 @@ export default function JobDetail({ job: application, onBack }) {
             <p>{[companyName, job.location].filter(Boolean).join(' · ')}</p>
           </div>
         </div>
-        {application.status && <span className={`status ${statusClass}`}>{application.status}</span>}
+        <div className="job-detail-header-actions">
+          {application.status && <span className={`status ${statusClass}`}>{application.status}</span>}
+          {canMessageRecruiter && (
+            <button className="primary-button" type="button" onClick={goToMessages}>Message recruiter</button>
+          )}
+        </div>
       </header>
 
       <section className="content-panel page-panel job-detail-panel">
