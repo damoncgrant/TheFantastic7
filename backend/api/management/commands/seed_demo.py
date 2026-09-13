@@ -37,11 +37,12 @@ class Command(BaseCommand):
                 defaults={"description": description, "location": location, "compensation": compensation, "requirements": requirements},
             )
             created_jobs[title] = job
-        # These records power the candidate's Applications filters: one at each stage.
+        # Keep matched demo applications in interview. Recruiters should send an
+        # offer themselves from the Messages page instead of receiving a seeded offer.
         stages = {
             "Backend Developer": (Application.Stage.APPLIED, Application.RecruiterDecision.PENDING),
             "Frontend Developer": (Application.Stage.INTERVIEW, Application.RecruiterDecision.SELECTED),
-            "Software Developer Intern": (Application.Stage.OFFER, Application.RecruiterDecision.SELECTED),
+            "Software Developer Intern": (Application.Stage.INTERVIEW, Application.RecruiterDecision.SELECTED),
         }
         for title, (stage, recruiter_decision) in stages.items():
             application, _ = Application.objects.get_or_create(
