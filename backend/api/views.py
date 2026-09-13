@@ -174,11 +174,11 @@ def resume_detail(request, resume_id):
     user = authenticated_user(request)
     if user is None:
         return error("Sign in to manage resumes.", 401)
-    resume = get_object_or_404(Resume, pk=resume_id, user=user)
-    if request.method == "GET":
-        return JsonResponse({"resume": serialize_resume(resume)})
     if request.method == "DELETE":
         with transaction.atomic():
+            resume = Resume.objects.filter(pk=resume_id, user=user).first()
+            if resume is None:
+                return HttpResponse(status=204)
             was_default = resume.is_default
             resume.delete()
             if was_default:
@@ -186,7 +186,11 @@ def resume_detail(request, resume_id):
                 if replacement:
                     replacement.is_default = True
                     replacement.save(update_fields=["is_default", "updated_at"])
-        return JsonResponse({}, status=204)
+        return HttpResponse(status=204)
+
+    resume = get_object_or_404(Resume, pk=resume_id, user=user)
+    if request.method == "GET":
+        return JsonResponse({"resume": serialize_resume(resume)})
 
     payload, response = resume_payload(request)
     if response:
