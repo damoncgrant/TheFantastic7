@@ -919,6 +919,8 @@ def send_message(request, application_id):
     text = str(data.get("body", "")).strip()
     if not text:
         return error("body cannot be empty")
+    if len(text) > 4000:
+        return error("body must be 4,000 characters or fewer")
     message = create_message(application=app, sender=user_or_response, body=text)
     return JsonResponse({"id": message.id, "sender_id": message.sender_id, "body": message.body, "created_at": message.created_at.isoformat()}, status=201)
 

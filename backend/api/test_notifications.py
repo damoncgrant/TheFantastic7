@@ -96,7 +96,7 @@ class NotificationTests(TestCase):
                                     json.dumps({"decision": "right"}), content_type="application/json")
         self.assertEqual(response.status_code, 200)
         response = self.client.post(f"/api/applications/{self.application.id}/messages/send/",
-                                    json.dumps({"user_id": self.recruiter.id, "body": "Welcome!"}), content_type="application/json")
+                                    json.dumps({"body": "Welcome!"}), content_type="application/json")
         self.assertEqual(response.status_code, 201)
         self.assertEqual(
             list(Notification.objects.values_list("kind", flat=True).order_by("kind")),

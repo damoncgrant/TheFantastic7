@@ -3178,12 +3178,14 @@ h2 {
 
 .message-thread {
   display: grid;
+  align-content: start;
   gap: 12px;
   min-height: 180px;
   padding: 4px 0;
 }
 
 .message-bubble {
+  align-self: start;
   width: fit-content;
   max-width: min(78%, 620px);
   padding: 13px 16px;
