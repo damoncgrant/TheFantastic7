@@ -73,7 +73,7 @@ function ApplicationRow({ application, onSelectJob }) {
       )}
       <div className="application-details">
         <strong>{application.role}</strong>
-        <span>{application.company}{application.date ? ` • ${application.date}` : ''}</span>
+        <span>{application.company}{application.date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) ? ` • ${application.date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}` : ''}</span>
       </div>
       <span className={`status ${statusClass}`}>
         {application.status}
@@ -162,12 +162,84 @@ function OverviewPage({ profile, applications, applicationsLoading, onSelectJob 
 }
 
 const applicationFilters = ['all', 'applied', 'interview', 'offer', 'rejected'];
+const dateFilterStart = new Date("2026-01-01");
+const dateFilterEnd = new Date();
+
+function DateRangeFilter({ startDate, endDate, onChange }) {
+  const [open, setOpen] = useState(false);
+  const popoverRef = useRef(null);
+
+  // Close popover when clicking outside it
+  useEffect(() => {
+    function handleClickOutside(event) {
+      if (popoverRef.current && !popoverRef.current.contains(event.target)) {
+        setOpen(false);
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const toInputValue = (date) => date.toISOString().slice(0, 10); // "YYYY-MM-DD"
+
+  // Create the date as a formatted string
+  function formatDateRange(startDate, endDate) {
+    const options = { month: 'short', day: 'numeric', year: 'numeric' };
+    return `${startDate.toLocaleDateString(undefined, options)} — ${endDate.toLocaleDateString(undefined, options)}`;
+  }
+
+  return (
+    <div className="date-filter-group">
+      <span className="date-filter-label">Date range</span>
+      <div className="date-filter" ref={popoverRef}>
+        <button
+          type="button"
+          className="date-filter-button"
+          aria-haspopup="dialog"
+          aria-expanded={open}
+          onClick={() => setOpen((prev) => !prev)}
+        >
+          <span className="date-filter-icon" aria-hidden="true">📅</span>
+          <span>{formatDateRange(startDate, endDate)}</span>
+        </button>
+    
+        {open && (
+          <div className="date-popover" role="dialog" aria-label="Select date range">
+            <label>
+              From
+              <input
+                type="date"
+                value={toInputValue(startDate)}
+                onChange={(e) => onChange(new Date(e.target.value), endDate)}
+              />
+            </label>
+            <label>
+              To
+              <input
+                type="date"
+                value={toInputValue(endDate)}
+                onChange={(e) => onChange(startDate, new Date(e.target.value))}
+              />
+            </label>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
 
 function ApplicationsPage({ applications, applicationsLoading, onSelectJob }) {
+  const [activeDateStart, setActiveDateStart] = useState(dateFilterStart);
+  const [activeDateEnd, setActiveDateEnd] = useState(dateFilterEnd);
+
   const [activeFilter, setActiveFilter] = useState('all');
-  const filteredApplications = activeFilter === 'all'
-    ? applications
-    : applications.filter((application) => application.stage === activeFilter);
+
+  const filteredApplications = applications
+    .filter((application) => activeFilter === 'all' || application.stage === activeFilter)
+    .filter((application) => {
+      const appliedDate = application.date; // adjust field name to match your data
+      return appliedDate >= activeDateStart && appliedDate <= activeDateEnd;
+    });
 
   return (
     <>
@@ -188,8 +260,16 @@ function ApplicationsPage({ applications, applicationsLoading, onSelectJob }) {
             {filter === 'all' ? 'All' : `${filter.charAt(0).toUpperCase()}${filter.slice(1)}`}
           </button>
         ))}
-      </section>
 
+      </section>
+      <DateRangeFilter
+          startDate={activeDateStart}
+          endDate={activeDateEnd}
+          onChange={(start, end) => {
+            setActiveDateStart(start);
+            setActiveDateEnd(end);
+          }}
+        />
       <section className="content-panel page-panel" aria-labelledby="all-applications-heading">
         <div className="section-heading">
           <div>

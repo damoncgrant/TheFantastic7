@@ -37,7 +37,12 @@ export default function JobDetail({ job: application, onBack }) {
 
       <section className="content-panel page-panel job-detail-panel">
         <div className="job-meta">
-          {application.date && <span>Applied {application.date}</span>}
+          {application.date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
+            && 
+            <span>
+              Applied {application.date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+            </span>
+          }
           {job.compensation && <span>{job.compensation}</span>}
           {job.employment_type && <span>{job.employment_type}</span>}
         </div>
