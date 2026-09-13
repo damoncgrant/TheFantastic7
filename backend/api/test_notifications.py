@@ -90,15 +90,15 @@ class NotificationTests(TestCase):
         self.application.refresh_from_db()
         self.assertEqual(self.application.stage, "applied")
 
-    def test_matching_notifies_but_messages_do_not_notify_either_participant(self):
+    def test_matching_and_messages_create_unread_message_records(self):
         self.client.force_login(self.recruiter_user)
         response = self.client.post(f"/api/applications/{self.application.id}/swipe/",
                                     json.dumps({"decision": "right"}), content_type="application/json")
         self.assertEqual(response.status_code, 200)
         response = self.client.post(f"/api/applications/{self.application.id}/messages/send/",
-                                    json.dumps({"user_id": self.recruiter.id, "body": "Welcome!"}), content_type="application/json")
+                                    json.dumps({"body": "Welcome!"}), content_type="application/json")
         self.assertEqual(response.status_code, 201)
-        self.assertEqual(list(Notification.objects.values_list("kind", flat=True)), ["status"])
+        self.assertEqual(Notification.objects.filter(kind=Notification.Kind.MESSAGE).count(), 2)
         self.client.force_login(self.user)
         response = self.client.get("/api/notifications/")
         self.assertEqual(response.json()["unreadCount"], 1)
@@ -111,7 +111,7 @@ class NotificationTests(TestCase):
         response = self.client.get(f"/api/applications/{self.application.id}/messages/")
         self.assertEqual(response.status_code, 200)
         self.assertEqual([item["body"] for item in response.json()["messages"]][-2:], ["Welcome!", "Thank you!"])
-        self.assertEqual(list(Notification.objects.values_list("kind", flat=True)), ["status"])
+        self.assertEqual(Notification.objects.filter(kind=Notification.Kind.MESSAGE).count(), 3)
 
     def test_existing_message_notifications_are_hidden_for_both_participants(self):
         for user, recipient, sender in [

@@ -51,6 +51,11 @@ class MatchingFlowTests(TestCase):
         self.assertEqual(candidate_conversations.json()["conversations"][0]["participant"]["name"], self.recruiter.name)
         message = self.post(f"/api/applications/{application_id}/messages/send/", {"body": "Thanks!"})
         self.assertEqual(message.status_code, 201)
+        too_long = self.post(
+            f"/api/applications/{application_id}/messages/send/",
+            {"body": "x" * 4001},
+        )
+        self.assertEqual(too_long.status_code, 400)
 
         self.client.force_login(self.recruiter_account)
         recruiter_conversations = self.client.get("/api/conversations/")

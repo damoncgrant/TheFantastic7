@@ -190,13 +190,19 @@ export default function DMPage({ user, notifications }) {
           </div>
         )}
       </section>
-      {activeConversation && <section className="content-panel page-panel conversation-thread" aria-live="polite" aria-labelledby="thread-heading">
+      {activeConversation && <section className="content-panel page-panel conversation-thread" aria-labelledby="thread-heading">
         {showCelebration && <MatchCelebration onDismiss={() => setShowCelebration(false)} />}
         <div className="section-heading">
           <div><p className="eyebrow">{isRecruiter ? 'Matched candidate' : 'Matched employer'}</p><h2 id="thread-heading">{activeConversation.participant.name}</h2><p>{activeConversation.role} · {activeConversation.company}</p></div>
           <span className="thread-match-badge" title="This application is matched">💼 <span>matched</span> 🤝</span>
         </div>
-        <div className="message-thread">
+        <div
+          className="message-thread"
+          role="log"
+          aria-live="polite"
+          aria-relevant="additions text"
+          aria-label={`Conversation with ${activeConversation.participant.name}`}
+        >
           {threadLoading ? <p role="status">Loading conversation…</p> : messages.map((message, index) => (
             <div className={`message-bubble ${String(message.sender_id) === String(currentProfileId) ? 'me' : 'employer'} ${index === 0 && messages.length === 1 ? 'match-message' : ''}`} key={message.id}>
               {index === 0 && messages.length === 1 && <span className="automated-label">✨ New match</span>}
