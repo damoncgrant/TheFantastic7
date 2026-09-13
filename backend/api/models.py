@@ -92,6 +92,7 @@ class Application(models.Model):
     candidate_decision = models.CharField(max_length=10, choices=CandidateDecision.choices)
     recruiter_decision = models.CharField(max_length=10, choices=RecruiterDecision.choices, default=RecruiterDecision.PENDING)
     stage = models.CharField(max_length=10, choices=Stage.choices, default=Stage.APPLIED)
+    rejection_reason = models.TextField(blank=True)
     applied_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
